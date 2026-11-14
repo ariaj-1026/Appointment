@@ -6,11 +6,13 @@ tracked through its lifecycle.
 
 FastAPI + SQLite on the backend, React + Vite on the frontend.
 
-See [ROADMAP.md](ROADMAP.md) for the design decisions and remaining phases.
+See [ROADMAP.md](ROADMAP.md) for the design decisions behind it. All four
+phases of that plan are built.
 
 ## Setup
 
-Requires Python 3.11+ and Node 18+.
+Developed and tested on Python 3.15 and Node 25. The code needs Python 3.10+
+(`X | None` annotations) and Node 18+; older versions are untested.
 
 ```bash
 # Backend
@@ -50,7 +52,7 @@ Interactive API docs are at http://localhost:8000/docs.
 
 ```bash
 cd backend
-../.venv/bin/python seed.py          # 3 staff, 5 services, 6 patients, 14 appointments
+../.venv/bin/python seed.py          # 3 staff, 5 services, 6 patients, 14 appointments + history
 ../.venv/bin/python seed.py --reset  # wipe everything first (asks to confirm)
 ```
 
@@ -177,7 +179,11 @@ frontend/
     components/        calendar, forms, modal, badges, bars, timeline
     pages/             Schedule, Search, Reports, Settings
     styles/            tokens.css, base.css
+  scripts/             contrast-audit.mjs (npm run contrast)
 ```
+
+There is no linter configured. The automated checks are `pytest`,
+`npm run build` and `npm run contrast`.
 
 ## Using it
 
