@@ -148,6 +148,40 @@ def test_utilization_us_spelling_alias_works(client, monday):
     assert client.get("/api/reports/utilization").status_code == 200
 
 
+def test_default_range_counts_upcoming_appointments(client, book, doctor, monday):
+    """The no-range default must not hide appointments that are still ahead.
+
+    A retrospective default (today-29 → today) reported zero for every staff
+    member on a clinic whose appointments were all in the coming week, while
+    Find — which applies no date filter — listed them all. The two screens
+    looked like they disagreed about the same data.
+    """
+    set_hours(client, doctor["id"])
+    book(at(monday, 9))  # `monday` is the next one, i.e. in the future
+
+    body = client.get("/api/reports/utilisation").json()
+    row = next(r for r in body["staff"] if r["staff_id"] == doctor["id"])
+    assert row["appointments"] == 1
+    assert body["totals"]["appointments"] == 1
+
+    assert client.get("/api/reports/cancellations").json()["totals"]["total"] == 1
+
+
+def test_default_range_fills_in_only_the_missing_end(client):
+    """Giving one end of the range keeps it; only the absent end is defaulted."""
+    body = client.get(
+        "/api/reports/utilisation", params={"date_from": "2026-03-01"}
+    ).json()
+    assert body["date_from"] == "2026-03-01"
+    assert body["date_to"] > body["date_from"]
+
+    body = client.get(
+        "/api/reports/utilisation", params={"date_to": "2026-03-31"}
+    ).json()
+    assert body["date_to"] == "2026-03-31"
+    assert body["date_from"] < body["date_to"]
+
+
 # --------------------------------------------------------------------------
 # Cancellations
 # --------------------------------------------------------------------------

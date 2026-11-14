@@ -85,7 +85,7 @@ cd backend
 ../.venv/bin/python -m pytest
 ```
 
-88 tests cover the booking rules: overlap detection, back-to-back bookings,
+90 tests cover the booking rules: overlap detection, back-to-back bookings,
 per-staff isolation, rebooking cancelled slots, the status machine, business
 hours including split shifts, rescheduling, search, audit history, the three
 reports and reminder dispatch.
@@ -142,6 +142,12 @@ Two definitions drive every number:
 - *Booked minutes* count only appointments that still hold their slot.
   Cancelled and no-show time was given back, so counting it would overstate how
   busy the clinic was. Completed time still counts — the visit happened.
+- *The default window looks forward, not back.* Utilisation and cancellations
+  open on last week through the next four weeks. A clinic's appointments are
+  mostly ahead of today, so a retrospective default reported zero for every
+  doctor while Find, which applies no date filter, listed them all — two
+  screens appearing to disagree about the same data. The **Past 7 / Past 30 /
+  Next 30** presets move the window; the daily summary is still one named day.
 - *Available minutes* come from configured business hours. A staff member
   without hours is unrestricted, so their capacity is **undefined, not zero**:
   utilisation reports `null` for them, and clinic totals carry a

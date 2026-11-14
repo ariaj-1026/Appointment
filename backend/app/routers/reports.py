@@ -12,6 +12,29 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 MAX_RANGE_DAYS = 366
 
+# The window a report covers when the caller names no range: last week through
+# the next four weeks. A clinic's appointments sit mostly in the future, so a
+# retrospective default reports zero for everyone on a freshly seeded database
+# while the appointments plainly exist.
+DEFAULT_DAYS_BACK = 7
+DEFAULT_DAYS_AHEAD = 28
+
+
+def _default_range(date_from: date | None, date_to: date | None) -> tuple[date, date]:
+    """Fill in whichever end of the range the caller left out."""
+    today = date.today()
+    if date_from is None and date_to is None:
+        return today - timedelta(days=DEFAULT_DAYS_BACK), today + timedelta(
+            days=DEFAULT_DAYS_AHEAD
+        )
+    if date_from is None:
+        return date_to - timedelta(days=DEFAULT_DAYS_BACK + DEFAULT_DAYS_AHEAD), date_to
+    if date_to is None:
+        return date_from, date_from + timedelta(
+            days=DEFAULT_DAYS_BACK + DEFAULT_DAYS_AHEAD
+        )
+    return date_from, date_to
+
 
 def _validate_range(date_from: date, date_to: date) -> None:
     if date_to < date_from:
@@ -49,10 +72,9 @@ def utilisation(
 ):
     """Booked minutes against available minutes, per staff member.
 
-    Defaults to the last 30 days when no range is given.
+    Defaults to the last week through the next four weeks.
     """
-    date_to = date_to or date.today()
-    date_from = date_from or date_to - timedelta(days=29)
+    date_from, date_to = _default_range(date_from, date_to)
     _validate_range(date_from, date_to)
     if staff_id is not None:
         get_staff(db, staff_id)
@@ -80,8 +102,7 @@ def cancellations(
     db: Session = Depends(get_db),
 ):
     """Cancellation and no-show rates, and the time they cost."""
-    date_to = date_to or date.today()
-    date_from = date_from or date_to - timedelta(days=29)
+    date_from, date_to = _default_range(date_from, date_to)
     _validate_range(date_from, date_to)
     if staff_id is not None:
         get_staff(db, staff_id)

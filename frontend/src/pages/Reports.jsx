@@ -34,6 +34,20 @@ function rangeIsBackwards(range) {
   return Boolean(range.date_from && range.date_to && range.date_from > range.date_to)
 }
 
+/**
+ * The range the reports open on: last week through the next four weeks.
+ *
+ * A purely retrospective window (today-29 → today) is the wrong default for a
+ * scheduler. A clinic's appointments are mostly *ahead* of today, so that
+ * window reported 0 for every doctor while Find — which has no date filter —
+ * listed them all, which reads as the two screens disagreeing rather than as a
+ * date range excluding the data.
+ */
+function defaultRange() {
+  const today = todayInput()
+  return { date_from: addDays(today, -7), date_to: addDays(today, 28), staff_id: '' }
+}
+
 function hm(minutes) {
   if (minutes === null || minutes === undefined) return '—'
   const h = Math.floor(minutes / 60)
@@ -263,11 +277,7 @@ function DailySummary({ staff }) {
 /* ----------------------------------------------------------- Utilisation */
 
 function Utilisation({ staff }) {
-  const [range, setRange] = useState(() => ({
-    date_from: addDays(todayInput(), -29),
-    date_to: todayInput(),
-    staff_id: '',
-  }))
+  const [range, setRange] = useState(defaultRange)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -421,11 +431,7 @@ function Utilisation({ staff }) {
 /* ---------------------------------------------------------- Cancellations */
 
 function Cancellations({ staff }) {
-  const [range, setRange] = useState(() => ({
-    date_from: addDays(todayInput(), -29),
-    date_to: todayInput(),
-    staff_id: '',
-  }))
+  const [range, setRange] = useState(defaultRange)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -831,9 +837,16 @@ function Stat({ value, label }) {
 function RangeBar({ range, setRange, staff, onExport }) {
   const set = (key) => (e) => setRange((r) => ({ ...r, [key]: e.target.value }))
 
-  function preset(days) {
+  // Past presets end today; `ahead` starts today. Reports about a schedule get
+  // asked in both directions — "how did last month go" and "how full is the
+  // month coming" — so both are one click.
+  function preset(days, ahead = false) {
     const today = todayInput()
-    setRange((r) => ({ ...r, date_from: addDays(today, -(days - 1)), date_to: today }))
+    setRange((r) =>
+      ahead
+        ? { ...r, date_from: today, date_to: addDays(today, days - 1) }
+        : { ...r, date_from: addDays(today, -(days - 1)), date_to: today },
+    )
   }
 
   return (
@@ -858,10 +871,16 @@ function RangeBar({ range, setRange, staff, onExport }) {
         </select>
       </div>
       <button className="btn btn-secondary btn-sm" onClick={() => preset(7)}>
-        7 days
+        Past 7
       </button>
       <button className="btn btn-secondary btn-sm" onClick={() => preset(30)}>
-        30 days
+        Past 30
+      </button>
+      <button className="btn btn-secondary btn-sm" onClick={() => preset(30, true)}>
+        Next 30
+      </button>
+      <button className="btn btn-secondary btn-sm" onClick={() => setRange(defaultRange)}>
+        Reset
       </button>
       <div className="spacer" />
       <button className="btn btn-secondary" onClick={onExport} disabled={!onExport}>
