@@ -625,7 +625,25 @@ function Cancellations({ staff }) {
 
 /* --------------------------------------------------------------- Reminders */
 
+const HOURS_MIN = 1
+const HOURS_MAX = 720
+
+/** Pull a typed number into the range the API accepts. */
+function clampHours(n) {
+  return Math.min(HOURS_MAX, Math.max(HOURS_MIN, Math.round(n)))
+}
+
 function Reminders() {
+  // Two pieces of state, deliberately. `hoursText` is what the box shows and
+  // may be mid-edit — including empty, which is what you get the instant you
+  // select-all and start retyping. `withinHours` is the committed value the
+  // API is asked about.
+  //
+  // Holding only the number broke the field: `Number('') || 1` turned an empty
+  // box into 1, so clearing it to type "48" snapped it to 1 and the control
+  // was stuck there. It also refetched on every keystroke, so typing "720"
+  // queried 7, then 72, then 720.
+  const [hoursText, setHoursText] = useState('24')
   const [withinHours, setWithinHours] = useState(24)
   const [due, setDue] = useState([])
   const [log, setLog] = useState([])
@@ -655,6 +673,28 @@ function Reminders() {
     load()
   }, [load])
 
+  // Commit the typed value once it stops changing, so a half-typed "7" on the
+  // way to "720" never reaches the API. An unparseable or empty box commits
+  // nothing and leaves the last good value in force.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const parsed = Number(hoursText)
+      if (!hoursText.trim() || !Number.isFinite(parsed)) return
+      setWithinHours(clampHours(parsed))
+    }, 400)
+    return () => clearTimeout(id)
+  }, [hoursText])
+
+  // Leaving the field tidies whatever is in it back to the committed value, so
+  // an empty or out-of-range box never sits there contradicting the results.
+  function normaliseHours() {
+    const parsed = Number(hoursText)
+    const next =
+      !hoursText.trim() || !Number.isFinite(parsed) ? withinHours : clampHours(parsed)
+    setHoursText(String(next))
+    setWithinHours(next)
+  }
+
   async function send() {
     setSending(true)
     setError(null)
@@ -677,11 +717,17 @@ function Reminders() {
           <input
             id="rm-hours"
             type="number"
-            min={1}
-            max={720}
-            value={withinHours}
-            onChange={(e) => setWithinHours(Number(e.target.value) || 1)}
+            min={HOURS_MIN}
+            max={HOURS_MAX}
+            value={hoursText}
+            onChange={(e) => setHoursText(e.target.value)}
+            onBlur={normaliseHours}
           />
+          <span className="hint">
+            {withinHours === 24
+              ? 'The next day'
+              : `The next ${withinHours} hours (max ${HOURS_MAX})`}
+          </span>
         </div>
         <button className="btn btn-primary" onClick={send} disabled={sending || !due.length}>
           {sending ? 'Sending…' : `Send ${due.length} reminder${due.length === 1 ? '' : 's'}`}
@@ -835,7 +881,24 @@ function Stat({ value, label }) {
 }
 
 function RangeBar({ range, setRange, staff, onExport }) {
-  const set = (key) => (e) => setRange((r) => ({ ...r, [key]: e.target.value }))
+  /**
+   * Keep the range pointing forwards as it is edited.
+   *
+   * Moving "From" past "To" drags "To" with it rather than leaving a range
+   * that cannot be run; moving "To" before "From" does the mirror. Without
+   * this, a user who pushed the start date forward got a silently dead report
+   * and no indication of which of the two fields was the problem.
+   */
+  const set = (key) => (e) =>
+    setRange((r) => {
+      const next = { ...r, [key]: e.target.value }
+      if (!next.date_from || !next.date_to || next.date_from <= next.date_to) {
+        return next
+      }
+      return key === 'date_from'
+        ? { ...next, date_to: next.date_from }
+        : { ...next, date_from: next.date_to }
+    })
 
   // Past presets end today; `ahead` starts today. Reports about a schedule get
   // asked in both directions — "how did last month go" and "how full is the
@@ -851,13 +914,30 @@ function RangeBar({ range, setRange, staff, onExport }) {
 
   return (
     <div className="toolbar">
+      {/* The two inputs bound each other, so the picker cannot offer a range
+          that runs backwards: "To" starts at "From", and "From" stops at
+          "To". Previously either could be dragged past the other, and the only
+          sign was the results quietly refusing to update. The hint below still
+          covers typed input, which ignores min/max. */}
       <div className="field">
         <label htmlFor="r-from">From</label>
-        <input id="r-from" type="date" value={range.date_from} onChange={set('date_from')} />
+        <input
+          id="r-from"
+          type="date"
+          value={range.date_from}
+          max={range.date_to || undefined}
+          onChange={set('date_from')}
+        />
       </div>
       <div className="field">
         <label htmlFor="r-to">To</label>
-        <input id="r-to" type="date" value={range.date_to} onChange={set('date_to')} />
+        <input
+          id="r-to"
+          type="date"
+          value={range.date_to}
+          min={range.date_from || undefined}
+          onChange={set('date_to')}
+        />
       </div>
       <div className="field">
         <label htmlFor="r-staff">Staff</label>

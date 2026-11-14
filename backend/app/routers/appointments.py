@@ -16,6 +16,8 @@ from app.schemas import (
 from app.schemas.audit import AuditLogRead
 from app.services import audit, status as status_machine
 from app.services.scheduling import (
+    assert_service_bookable,
+    assert_staff_bookable,
     compute_end,
     get_appointment,
     get_patient,
@@ -109,8 +111,10 @@ def read_appointment(appointment_id: int, db: Session = Depends(get_db)):
 def create_appointment(payload: AppointmentCreate, db: Session = Depends(get_db)):
     """Register an appointment, refusing overlaps with 409."""
     get_patient(db, payload.patient_id)
-    get_staff(db, payload.staff_id)
+    staff_member = get_staff(db, payload.staff_id)
     service = get_service(db, payload.service_id)
+    assert_staff_bookable(staff_member)
+    assert_service_bookable(service)
 
     starts_at = payload.starts_at
     ends_at = compute_end(starts_at, service)
@@ -170,10 +174,11 @@ def reschedule_appointment(
 
     staff_id = payload.staff_id if payload.staff_id is not None else appointment.staff_id
     if payload.staff_id is not None:
-        get_staff(db, payload.staff_id)
+        assert_staff_bookable(get_staff(db, payload.staff_id))
 
     if payload.service_id is not None:
         service = get_service(db, payload.service_id)
+        assert_service_bookable(service)
     else:
         service = appointment.service
 

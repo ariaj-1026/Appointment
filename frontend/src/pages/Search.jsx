@@ -48,7 +48,19 @@ export default function Search({ staff, services }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const set = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.value }))
+  // The two date filters bound each other, so a range can never run backwards:
+  // dragging one past the other carries it along instead of producing a filter
+  // that matches nothing and looks like missing data.
+  const set = (key) => (e) =>
+    setFilters((f) => {
+      const next = { ...f, [key]: e.target.value }
+      if (!next.date_from || !next.date_to || next.date_from <= next.date_to) {
+        return next
+      }
+      return key === 'date_from'
+        ? { ...next, date_to: next.date_from }
+        : { ...next, date_from: next.date_to }
+    })
 
   return (
     <div className="page">
@@ -103,12 +115,19 @@ export default function Search({ staff, services }) {
             id="f-from"
             type="date"
             value={filters.date_from}
+            max={filters.date_to || undefined}
             onChange={set('date_from')}
           />
         </div>
         <div className="field">
           <label htmlFor="f-to">To</label>
-          <input id="f-to" type="date" value={filters.date_to} onChange={set('date_to')} />
+          <input
+            id="f-to"
+            type="date"
+            value={filters.date_to}
+            min={filters.date_from || undefined}
+            onChange={set('date_to')}
+          />
         </div>
         <button type="submit" className="btn btn-primary" disabled={loading}>
           {loading ? 'Searching…' : 'Search'}

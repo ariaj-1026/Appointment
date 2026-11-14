@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { api, ApiError } from '../api/client.js'
+import { nowInput } from '../lib/datetime.js'
 import ErrorAlert from './ErrorAlert.jsx'
 import Modal from './Modal.jsx'
 
@@ -60,6 +61,11 @@ export default function AppointmentForm({
     return { time: `${hh}:${mm}`, crossesMidnight: total >= 1440, datePart }
   }, [form.starts_at, selectedService])
 
+  // Computed once per mount: a form held open for an hour is not worth
+  // re-rendering over, and the server makes the real decision on submit.
+  const minStart = useMemo(() => nowInput(), [])
+  const isPastStart = Boolean(form.starts_at) && form.starts_at < minStart
+
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const setPatientField = (key) => (e) =>
     setNewPatient((p) => ({ ...p, [key]: e.target.value }))
@@ -117,7 +123,7 @@ export default function AppointmentForm({
             type="submit"
             form="appointment-form"
             className="btn btn-primary"
-            disabled={saving}
+            disabled={saving || isPastStart}
           >
             {saving ? 'Booking…' : 'Book appointment'}
           </button>
@@ -250,9 +256,19 @@ export default function AppointmentForm({
             type="datetime-local"
             value={form.starts_at}
             onChange={set('starts_at')}
+            // The browser's own floor on the picker, matching the rule the API
+            // enforces. It is a convenience, not the guard: `min` is trivially
+            // bypassed, so the server still refuses a past start.
+            min={minStart}
             required
           />
-          {endPreview && (
+          {isPastStart && (
+            <span className="hint hint-warn">
+              That time has already passed. Pick a later one — a visit that
+              already happened is booked and then marked completed.
+            </span>
+          )}
+          {endPreview && !isPastStart && (
             <span className="hint">
               Ends at {endPreview.time}
               {endPreview.crossesMidnight && ' the next day'} ·{' '}

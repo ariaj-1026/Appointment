@@ -21,6 +21,10 @@ const DEFAULT_CLOSE = 18 * 60
  * shows the same rules the backend enforces rather than letting the user
  * discover them through a rejected booking.
  *
+ * Slots that have already passed are dimmed and refuse booking, for the same
+ * reason. An appointment already sitting in a past slot stays clickable — the
+ * whole point of looking at yesterday is to mark what happened.
+ *
  * Keyboard model: the grid is one tab stop, not forty. A roving tabindex keeps
  * exactly one cell focusable; arrows move between cells, Home/End jump along a
  * row, PageUp/PageDown and Ctrl+Home/End along a column, and Enter or Space
@@ -100,6 +104,19 @@ export default function DayCalendar({
     [hoursByStaff, weekday],
   )
 
+  // Re-read the clock each time the day changes rather than once at mount, so
+  // a tab left open overnight does not keep yesterday bookable.
+  const isPast = useCallback(
+    (slotMinutes) => {
+      const slot = new Date(`${date}T00:00:00`)
+      slot.setMinutes(slotMinutes + SLOT_MINUTES)
+      // The slot is past only once it has fully elapsed, so the half-hour you
+      // are currently standing in can still be booked.
+      return slot <= new Date()
+    },
+    [date],
+  )
+
   // Keep the focused cell in range when the day or staff list changes.
   useEffect(() => {
     setFocus((f) => ({
@@ -133,7 +150,7 @@ export default function DayCalendar({
       onOpenAppointment(items[0])
       return
     }
-    if (!isOpen(member.id, slotMinutes)) return
+    if (!isOpen(member.id, slotMinutes) || isPast(slotMinutes)) return
     onPickSlot(
       toDateTimeInput(date, Math.floor(slotMinutes / 60), slotMinutes % 60),
       member.id,
@@ -209,6 +226,7 @@ export default function DayCalendar({
           date={date}
           placed={placed}
           isOpen={isOpen}
+          isPast={isPast}
           focus={focus}
           onFocusCell={(row, col) => setFocus({ row, col })}
           onActivate={activate}
@@ -224,11 +242,13 @@ function SlotRow({
   staff,
   placed,
   isOpen,
+  isPast,
   focus,
   onFocusCell,
   onActivate,
 }) {
   const onTheHour = slotMinutes % 60 === 0
+  const past = isPast(slotMinutes)
 
   return (
     <div className="cal-row" role="row">
@@ -247,12 +267,17 @@ function SlotRow({
           label = `${time}, ${member.full_name}: ${items
             .map((a) => `${a.patient.full_name}, ${a.service.name}`)
             .join('; ')}`
-        } else if (open) {
-          className += ' bookable'
-          label = `${time}, ${member.full_name}: free — book`
-        } else {
+        } else if (!open) {
           className += ' closed'
           label = `${time}, ${member.full_name}: outside business hours`
+        } else if (past) {
+          // Distinct from `closed`: the clinic was open, the time has simply
+          // gone. Saying so is what stops it reading as a broken cell.
+          className += ' past'
+          label = `${time}, ${member.full_name}: time has passed`
+        } else {
+          className += ' bookable'
+          label = `${time}, ${member.full_name}: free — book`
         }
 
         return (
@@ -264,7 +289,7 @@ function SlotRow({
             // Roving tabindex: exactly one cell is reachable by Tab.
             tabIndex={isFocused ? 0 : -1}
             aria-label={label}
-            title={items.length === 0 && open ? label : undefined}
+            title={items.length === 0 && open && !past ? label : undefined}
             onFocus={() => onFocusCell(rowIndex, colIndex)}
             onClick={() => onActivate(rowIndex, colIndex)}
           >

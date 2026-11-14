@@ -52,6 +52,12 @@ export default function App() {
     loadRefs()
   }, [loadRefs])
 
+  // Everything is fetched including inactive rows, because Find, Reports and
+  // Settings all have to show a departed doctor's past work. Only the places
+  // that *start* something new are narrowed to the active set: offering a
+  // deactivated staff member in the booking form invited a rejection the user
+  // could not have predicted from the dropdown.
+  const activeStaff = staff.filter((s) => s.is_active)
   const activeServices = services.filter((s) => s.is_active)
 
   return (

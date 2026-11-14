@@ -85,10 +85,11 @@ cd backend
 ../.venv/bin/python -m pytest
 ```
 
-90 tests cover the booking rules: overlap detection, back-to-back bookings,
+99 tests cover the booking rules: overlap detection, back-to-back bookings,
 per-staff isolation, rebooking cancelled slots, the status machine, business
-hours including split shifts, rescheduling, search, audit history, the three
-reports and reminder dispatch.
+hours including split shifts, the past-booking floor, deactivated staff and
+services, rescheduling, search, audit history, the three reports and reminder
+dispatch.
 
 ## How it works
 
@@ -106,6 +107,25 @@ not excluded — a finished visit still happened, so its slot stays taken.
 Appointment length always comes from the service, never the caller: `ends_at`
 is computed at booking time and stored, making the overlap test a single
 comparison with no join.
+
+**The booking window.** A new appointment must start between now and
+`MAX_BOOKING_DAYS_AHEAD` (365) days out. The past bound matters most: without
+it the system accepted a booking for last Thursday and then counted it in
+utilisation and reminders, producing numbers about work nobody could still do.
+A visit that genuinely happened is recorded by booking it and completing it,
+not by back-dating one into a slot that has gone. The floor sits
+`BOOKING_GRACE_MINUTES` (15) behind the clock so that submitting a 14:00 slot
+at 14:01 still works. The calendar dims elapsed slots and refuses to book them;
+appointments already in them stay clickable, since marking what happened is the
+reason to look at yesterday at all.
+
+**Deactivated staff and services.** Deactivating is not deleting — a doctor who
+has left keeps their past appointments, audit history and report rows. It means
+"take no *new* bookings", so the check runs when booking and when rescheduling
+onto someone, not inside the lookups that reports rely on. The booking form and
+the move dialog both drop inactive entries, except the appointment's own
+current staff member or service, which stays listed so a reschedule meant only
+to change the time cannot silently reassign it.
 
 **Business hours.** Each staff member has zero or more open windows per
 weekday. A staff member with no windows at all is unrestricted, so hours are

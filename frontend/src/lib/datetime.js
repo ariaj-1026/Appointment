@@ -33,6 +33,20 @@ export function todayInput() {
   return toDateInput(new Date())
 }
 
+/**
+ * Now, as a `datetime-local` input writes it — the floor for a new booking.
+ *
+ * Built from the local clock field by field. `toISOString()` would be shorter
+ * but converts to UTC first, moving the floor by the timezone offset: west of
+ * Greenwich it would wrongly allow times earlier today, and east of it would
+ * refuse valid ones. These strings compare correctly as text, so a caller can
+ * test `value < nowInput()` without parsing.
+ */
+export function nowInput() {
+  const now = new Date()
+  return `${toDateInput(now)}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+
 export function addDays(dateStr, days) {
   const [y, m, d] = dateStr.split('-').map(Number)
   const date = new Date(y, m - 1, d + days)

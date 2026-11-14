@@ -294,6 +294,14 @@ input[type='time']::-webkit-calendar-picker-indicator:hover {
   color: var(--color-text-muted);
 }
 
+/* A hint that explains why the form will not submit. Uses the no-show red
+   (--status-no_show, 4.67:1 on white) rather than the muted grey, since this
+   one has to be noticed; the wording carries the meaning, not the colour. */
+.hint-warn {
+  color: var(--status-no_show);
+  font-weight: 500;
+}
+
 /* ----------------------------------------------------------------- Cards */
 
 .card {
@@ -490,6 +498,13 @@ tbody tr:last-child td {
     #f3f3f3 5px,
     #f3f3f3 10px
   );
+}
+
+/* Elapsed, not closed. A flat tint rather than the hatch, so the two reasons a
+   cell cannot be booked stay tellable apart at a glance. */
+.cal-cell.past {
+  background: #f7f7f7;
+  cursor: not-allowed;
 }
 
 .cal-cell.bookable {

@@ -6,6 +6,7 @@ import {
   STATUS_LABELS,
   formatDateShort,
   formatTimeRange,
+  nowInput,
 } from '../lib/datetime.js'
 import ErrorAlert from './ErrorAlert.jsx'
 import HistoryTimeline from './HistoryTimeline.jsx'
@@ -43,6 +44,24 @@ export default function AppointmentDetail({
 
   const allowed = ALLOWED_TRANSITIONS[appointment.status] || []
   const isTerminal = allowed.length === 0
+
+  // Opening an old appointment to read its history is fine; moving it into a
+  // slot that has already gone is not. Only the proposed new time is checked,
+  // never the appointment's current one.
+  const minStart = nowInput()
+  const movesToPast = Boolean(move.starts_at) && move.starts_at < minStart
+
+  // Deactivated staff and services are dropped from the move dialog, since the
+  // API refuses them — offering one would promise a move it cannot make. The
+  // exception is the appointment's *own* current staff member or service: if
+  // they were deactivated after it was booked, they must stay in the list, or
+  // the dropdown would silently show someone else as the selection and a
+  // reschedule meant only to change the time would quietly reassign it.
+  const keepCurrent = (rows, currentId) =>
+    rows.filter((r) => r.is_active || r.id === currentId)
+
+  const bookableStaff = keepCurrent(staff, appointment.staff_id)
+  const bookableServices = keepCurrent(services, appointment.service_id)
 
   function requestStatus(status) {
     if (NEEDS_REASON.includes(status)) {
@@ -165,8 +184,15 @@ export default function AppointmentDetail({
                 type="datetime-local"
                 value={move.starts_at}
                 onChange={(e) => setMove((m) => ({ ...m, starts_at: e.target.value }))}
+                min={minStart}
                 required
               />
+              {movesToPast && (
+                <span className="hint hint-warn">
+                  That time has already passed. An appointment can only be
+                  moved forward.
+                </span>
+              )}
             </div>
             <div className="field-row">
               <div className="field">
@@ -176,9 +202,10 @@ export default function AppointmentDetail({
                   value={move.staff_id}
                   onChange={(e) => setMove((m) => ({ ...m, staff_id: e.target.value }))}
                 >
-                  {staff.map((s) => (
+                  {bookableStaff.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.full_name}
+                      {s.is_active ? '' : ' (deactivated)'}
                     </option>
                   ))}
                 </select>
@@ -192,9 +219,10 @@ export default function AppointmentDetail({
                     setMove((m) => ({ ...m, service_id: e.target.value }))
                   }
                 >
-                  {services.map((s) => (
+                  {bookableServices.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name} ({s.duration_minutes} min)
+                      {s.is_active ? '' : ' — deactivated'}
                     </option>
                   ))}
                 </select>
@@ -208,7 +236,11 @@ export default function AppointmentDetail({
               >
                 Back
               </button>
-              <button type="submit" className="btn btn-primary" disabled={busy}>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={busy || movesToPast}
+              >
                 {busy ? 'Moving…' : 'Confirm move'}
               </button>
             </div>

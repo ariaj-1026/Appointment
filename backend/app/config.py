@@ -24,6 +24,13 @@ CORS_ORIGINS = os.getenv(
 # Appointments may not be booked further ahead than this.
 MAX_BOOKING_DAYS_AHEAD = int(os.getenv("MAX_BOOKING_DAYS_AHEAD", "365"))
 
+# How far into the past a new booking may start. Not zero: someone who opens
+# the form at 13:58 for a 14:00 slot and submits at 14:01 is booking the
+# present, not the past, and bouncing them would be baffling. Wide enough to
+# absorb that and a walk-in entered shortly after it began, narrow enough that
+# yesterday is still refused.
+BOOKING_GRACE_MINUTES = int(os.getenv("BOOKING_GRACE_MINUTES", "15"))
+
 # Run `alembic upgrade head` on startup. Tests build their schema directly and
 # switch this off; a multi-replica deployment should too, migrating as its own
 # deploy step so replicas cannot race.

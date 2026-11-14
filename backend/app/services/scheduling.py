@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.config import MAX_BOOKING_DAYS_AHEAD
+from app.config import BOOKING_GRACE_MINUTES, MAX_BOOKING_DAYS_AHEAD
 from app.models import Appointment, BusinessHour, Patient, Service, Staff
 from app.models.appointment import BLOCKING_STATUSES
 from app.models.business_hour import WEEKDAY_NAMES
@@ -50,6 +50,29 @@ def get_service(db: Session, service_id: int) -> Service:
     if service is None:
         raise NotFoundError(f"No service with id {service_id}.", service_id=service_id)
     return service
+
+
+# Deactivation is not deletion. `get_staff` and `get_service` must keep
+# returning inactive rows, because a doctor who has left still appears in their
+# past appointments, in the audit history and in reports covering the period
+# they worked. What deactivating means is "take no *new* bookings", so the
+# check belongs at the moment of booking — and separately per entity, so that
+# rescheduling can validate only what the caller is actually changing.
+
+def assert_staff_bookable(staff: Staff) -> None:
+    if not staff.is_active:
+        raise ValidationError(
+            f"{staff.full_name} is deactivated and is not taking new bookings.",
+            staff_id=staff.id,
+        )
+
+
+def assert_service_bookable(service: Service) -> None:
+    if not service.is_active:
+        raise ValidationError(
+            f"{service.name} is deactivated and cannot be booked.",
+            service_id=service.id,
+        )
 
 
 def get_appointment(db: Session, appointment_id: int) -> Appointment:
@@ -213,7 +236,26 @@ def assert_within_business_hours(
 # --------------------------------------------------------------------------
 
 def assert_bookable_horizon(starts_at: datetime) -> None:
-    limit = datetime.now() + timedelta(days=MAX_BOOKING_DAYS_AHEAD)
+    """Bound a proposed start on both sides of now.
+
+    The past bound is the one that matters in practice. Without it the system
+    would accept a booking for last Thursday and then count it in utilisation
+    and reminders as though it were real work the clinic had scheduled — a
+    number nobody can act on, attached to time that has already gone. A visit
+    that genuinely happened is recorded by booking it and completing it, not by
+    back-dating a new appointment into a slot that no longer exists.
+    """
+    now = datetime.now()
+
+    floor = now - timedelta(minutes=BOOKING_GRACE_MINUTES)
+    if starts_at < floor:
+        raise ValidationError(
+            "Appointments cannot be booked in the past.",
+            starts_at=starts_at.isoformat(),
+            now=now.isoformat(),
+        )
+
+    limit = now + timedelta(days=MAX_BOOKING_DAYS_AHEAD)
     if starts_at > limit:
         raise ValidationError(
             f"Appointments cannot be booked more than "
