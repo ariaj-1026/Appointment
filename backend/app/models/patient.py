@@ -1,9 +1,9 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Index, String, Text, func
+from sqlalchemy import Date, DateTime, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.database import Base, clinic_now
 
 
 class Patient(Base):
@@ -16,7 +16,7 @@ class Patient(Base):
     email: Mapped[str | None] = mapped_column(String(255), default=None)
     date_of_birth: Mapped[date | None] = mapped_column(Date, default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=clinic_now)
 
     appointments: Mapped[list["Appointment"]] = relationship(  # noqa: F821
         back_populates="patient",

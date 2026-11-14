@@ -85,7 +85,7 @@ cd backend
 ../.venv/bin/python -m pytest
 ```
 
-99 tests cover the booking rules: overlap detection, back-to-back bookings,
+101 tests cover the booking rules: overlap detection, back-to-back bookings,
 per-staff isolation, rebooking cancelled slots, the status machine, business
 hours including split shifts, the past-booking floor, deactivated staff and
 services, rescheduling, search, audit history, the three reports and reminder
@@ -151,6 +151,26 @@ user attempt one that will be rejected.
 fitting status: `409` for a slot conflict (listing what clashes), `422` for
 out-of-hours or an illegal status move, `404` for a missing record.
 
+**Time is Philippine time, everywhere.** Appointment starts come straight from
+a `datetime-local` input and business hours are wall-clock times, so nothing is
+converted anywhere — every stored datetime is naive clinic-local.
+
+For that to hold, "now" has to mean one named zone rather than whatever the
+host is set to, so [`app/clock.py`](backend/app/clock.py) pins it to
+**`Asia/Manila`**. A clone running on a laptop abroad or a CI runner on UTC
+still books, reports and timestamps against Philippine time. Set
+`CLINIC_TIMEZONE` to move the clinic. Nothing calls `datetime.now()` or
+`date.today()` directly; `clinic_now()` and `clinic_today()` are the only
+clocks, and the suite passes with the host set to Manila, UTC, New York,
+London, Auckland or Los Angeles.
+
+Record-keeping columns (`changed_at`, `created_at`, `updated_at`, `sent_at`)
+follow the same rule via `default=clinic_now`, and deliberately **not**
+`server_default=func.now()`: on SQLite the latter renders as
+`CURRENT_TIMESTAMP`, which is UTC. Mixing the two misdated history by the
+clinic's offset — a booking made at 21:10 was recorded as 13:10, and anything
+after 16:00 was filed under the previous day.
+
 **History.** Every create, status change and reschedule writes an `audit_logs`
 row in the same transaction as the change itself, so a rejected booking cannot
 leave a log entry claiming it happened. The rows are append-only; the
@@ -188,6 +208,7 @@ backend/
   app/
     main.py            app factory, CORS, error handlers
     config.py          env-driven settings
+    clock.py           the clinic's wall clock (Asia/Manila)
     database.py        engine, session, create_all
     migrate.py         programmatic Alembic runner
     models/            SQLAlchemy models

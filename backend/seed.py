@@ -12,6 +12,7 @@ from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import select
 
+from app.clock import clinic_today
 from app.database import Base, SessionLocal, engine
 from app.migrate import upgrade_to_head
 from app.models import Appointment, AuditLog, BusinessHour, Patient, Service, Staff
@@ -44,7 +45,7 @@ PATIENTS = [
 
 
 def _next_monday() -> date:
-    today = date.today()
+    today = clinic_today()
     return today + timedelta(days=(0 - today.weekday()) % 7 or 7)
 
 

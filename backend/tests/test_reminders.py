@@ -4,6 +4,7 @@ from datetime import date, datetime, time, timedelta
 
 import pytest
 
+from app.clock import clinic_now
 from app.models import Appointment, Service
 from app.services import reminders
 
@@ -11,7 +12,7 @@ from app.services import reminders
 @pytest.fixture
 def soon(client, patient, doctor, consult):
     """An appointment a few hours from now, inside the default 24h window."""
-    starts = (datetime.now() + timedelta(hours=3)).replace(second=0, microsecond=0)
+    starts = (clinic_now() + timedelta(hours=3)).replace(second=0, microsecond=0)
     r = client.post(
         "/api/appointments",
         json={
@@ -58,7 +59,7 @@ def test_past_appointment_is_not_due(client, db, soon):
     """A reminder for a visit already under way is noise."""
     appointment = db.get(Appointment, soon["id"])
     service = db.get(Service, appointment.service_id)
-    appointment.starts_at = datetime.now() - timedelta(hours=2)
+    appointment.starts_at = clinic_now() - timedelta(hours=2)
     appointment.ends_at = appointment.starts_at + timedelta(
         minutes=service.duration_minutes
     )
@@ -112,7 +113,7 @@ def test_failed_send_is_logged_and_stays_due(client, db, soon):
 
 
 def test_one_failure_does_not_abort_the_sweep(client, db, soon, other_patient, doctor, consult):
-    starts = (datetime.now() + timedelta(hours=5)).replace(second=0, microsecond=0)
+    starts = (clinic_now() + timedelta(hours=5)).replace(second=0, microsecond=0)
     client.post(
         "/api/appointments",
         json={

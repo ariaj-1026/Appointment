@@ -2,6 +2,7 @@
 
 from datetime import date, datetime, timedelta
 
+from app.clock import clinic_now, clinic_today
 from tests.conftest import at
 
 
@@ -107,7 +108,7 @@ def test_booking_in_the_past_is_rejected(client, book):
     gone and then counted it in utilisation and reminders, producing numbers
     about work nobody could still do.
     """
-    yesterday = date.today() - timedelta(days=1)
+    yesterday = clinic_today() - timedelta(days=1)
     r = book(at(yesterday, 10))
     assert r.status_code == 422
     body = r.json()
@@ -117,7 +118,7 @@ def test_booking_in_the_past_is_rejected(client, book):
 
 def test_earlier_today_is_rejected(client, book):
     """Not just past dates — a time earlier today has passed too."""
-    long_past = datetime.now() - timedelta(hours=4)
+    long_past = clinic_now() - timedelta(hours=4)
     assert book(long_past.replace(microsecond=0).isoformat()).status_code == 422
 
 
@@ -128,13 +129,13 @@ def test_grace_window_allows_the_slot_just_begun(client, book):
     is booking the present. Bouncing them would be baffling, so the floor sits
     a few minutes back.
     """
-    just_now = datetime.now() - timedelta(minutes=2)
+    just_now = clinic_now() - timedelta(minutes=2)
     assert book(just_now.replace(microsecond=0).isoformat()).status_code == 201
 
 
 def test_rescheduling_into_the_past_is_rejected(client, book, monday):
     created = book(at(monday, 10)).json()
-    yesterday = date.today() - timedelta(days=1)
+    yesterday = clinic_today() - timedelta(days=1)
     r = client.patch(
         f"/api/appointments/{created['id']}/reschedule",
         json={"starts_at": at(yesterday, 10)},

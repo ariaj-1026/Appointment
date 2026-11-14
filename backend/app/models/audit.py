@@ -1,10 +1,10 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.database import Base, clinic_now
 
 
 class AuditAction(str, enum.Enum):
@@ -43,7 +43,7 @@ class AuditLog(Base):
     to_staff_id: Mapped[int | None] = mapped_column(default=None)
 
     note: Mapped[str | None] = mapped_column(Text, default=None)
-    changed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    changed_at: Mapped[datetime] = mapped_column(DateTime, default=clinic_now)
 
     appointment: Mapped["Appointment"] = relationship(  # noqa: F821
         back_populates="audit_logs"

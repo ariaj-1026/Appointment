@@ -6,3 +6,6 @@ pydantic>=2.10
 email-validator>=2.2
 httpx>=0.28
 pytest>=8.3
+# zoneinfo reads the operating system's timezone database, which Windows does
+# not ship. Without this, CLINIC_TIMEZONE fails to resolve there.
+tzdata>=2024.1; sys_platform == "win32"

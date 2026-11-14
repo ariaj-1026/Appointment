@@ -16,6 +16,7 @@ from typing import Protocol
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from app.clock import clinic_now
 from app.config import REMINDER_LOOKAHEAD_HOURS, REMINDER_SENDER
 from app.models import Appointment, ReminderLog
 from app.models.appointment import AppointmentStatus
@@ -92,7 +93,7 @@ def find_due(
     Past appointments are excluded: a reminder for a visit that has already
     begun is noise, not a service.
     """
-    now = now or datetime.now()
+    now = now or clinic_now()
     hours = within_hours if within_hours is not None else REMINDER_LOOKAHEAD_HOURS
     horizon = now + timedelta(hours=hours)
 

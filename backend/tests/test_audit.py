@@ -1,5 +1,8 @@
 """Phase 3: booking history."""
 
+from datetime import datetime, timedelta
+
+from app.clock import clinic_now, clinic_today
 from tests.conftest import at
 
 
@@ -86,3 +89,34 @@ def test_rejected_changes_leave_no_trace(client, book, monday, other_patient):
 
 def test_history_of_unknown_appointment_is_404(client):
     assert client.get("/api/appointments/9999/history").status_code == 404
+
+
+def test_history_is_stamped_in_local_clinic_time(client, book, monday):
+    """`changed_at` follows the same naive-local rule as every other datetime.
+
+    It used to rely on `server_default=func.now()`, which SQLite renders as
+    CURRENT_TIMESTAMP — i.e. **UTC**. East of Greenwich that reported every
+    booking as having been made hours earlier, often on the previous calendar
+    day, while the appointment times beside it were local. The two clocks in
+    one timeline could not be compared.
+    """
+    before = clinic_now() - timedelta(seconds=5)
+    created = book(at(monday, 10)).json()
+    after = clinic_now() + timedelta(seconds=5)
+
+    entry = client.get(f"/api/appointments/{created['id']}/history").json()[0]
+    stamped = datetime.fromisoformat(entry["changed_at"])
+    assert before <= stamped <= after, (
+        f"{stamped} is outside {before}..{after}; a UTC stamp would land here"
+    )
+
+
+def test_each_history_entry_gets_its_own_timestamp(client, book, monday):
+    """A later action is stamped later — the column is not frozen at insert."""
+    created = book(at(monday, 10)).json()
+    client.patch(
+        f"/api/appointments/{created['id']}/status", json={"status": "confirmed"}
+    )
+    entries = client.get(f"/api/appointments/{created['id']}/history").json()
+    assert len(entries) == 2
+    assert entries[0]["changed_at"] <= entries[1]["changed_at"]

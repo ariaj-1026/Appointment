@@ -8,12 +8,11 @@ from sqlalchemy import (
     Index,
     String,
     Text,
-    func,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.database import Base, clinic_now
 
 
 class AppointmentStatus(str, enum.Enum):
@@ -74,9 +73,9 @@ class Appointment(Base):
         String(16), default=AppointmentStatus.SCHEDULED.value, index=True
     )
     reason: Mapped[str | None] = mapped_column(Text, default=None)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=clinic_now)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
+        DateTime, default=clinic_now, onupdate=clinic_now
     )
 
     patient: Mapped["Patient"] = relationship(back_populates="appointments")  # noqa: F821

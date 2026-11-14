@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.clock import clinic_today
 from app.database import get_db
 from app.services import reports
 from app.services.errors import ValidationError
@@ -22,7 +23,7 @@ DEFAULT_DAYS_AHEAD = 28
 
 def _default_range(date_from: date | None, date_to: date | None) -> tuple[date, date]:
     """Fill in whichever end of the range the caller left out."""
-    today = date.today()
+    today = clinic_today()
     if date_from is None and date_to is None:
         return today - timedelta(days=DEFAULT_DAYS_BACK), today + timedelta(
             days=DEFAULT_DAYS_AHEAD
@@ -53,7 +54,7 @@ def _validate_range(date_from: date, date_to: date) -> None:
 
 @router.get("/daily-summary")
 def daily_summary(
-    day: date = Query(default_factory=date.today, alias="date"),
+    day: date = Query(default_factory=clinic_today, alias="date"),
     staff_id: int | None = None,
     db: Session = Depends(get_db),
 ):

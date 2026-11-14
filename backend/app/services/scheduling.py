@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from app.clock import clinic_now
 from app.config import BOOKING_GRACE_MINUTES, MAX_BOOKING_DAYS_AHEAD
 from app.models import Appointment, BusinessHour, Patient, Service, Staff
 from app.models.appointment import BLOCKING_STATUSES
@@ -245,7 +246,7 @@ def assert_bookable_horizon(starts_at: datetime) -> None:
     that genuinely happened is recorded by booking it and completing it, not by
     back-dating a new appointment into a slot that no longer exists.
     """
-    now = datetime.now()
+    now = clinic_now()
 
     floor = now - timedelta(minutes=BOOKING_GRACE_MINUTES)
     if starts_at < floor:

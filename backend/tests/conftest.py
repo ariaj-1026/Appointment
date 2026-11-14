@@ -21,6 +21,7 @@ from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from app import database  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
+from app.clock import clinic_now, clinic_today  # noqa: E402,F401
 from app.main import create_app  # noqa: E402
 
 
@@ -126,7 +127,7 @@ def next_weekday(weekday: int = 0) -> date:
     Tests use a future date so the booking-horizon check never interferes and
     results do not depend on the day the suite happens to run.
     """
-    today = date.today()
+    today = clinic_today()
     ahead = (weekday - today.weekday()) % 7 or 7
     return today + timedelta(days=ahead)
 

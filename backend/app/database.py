@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
+from app.clock import clinic_now
 from app.config import DATABASE_URL
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
@@ -17,6 +18,17 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, futu
 
 class Base(DeclarativeBase):
     pass
+
+
+# Re-exported so the models can keep importing their column default from here.
+# The clock itself lives in app/clock.py, which has no database dependency.
+#
+# Record-keeping columns must use this rather than `server_default=func.now()`:
+# on SQLite that renders as `CURRENT_TIMESTAMP`, which is **UTC**. Stamping one
+# column in UTC and comparing it against another in clinic time silently
+# misdates history by the clinic's offset — at UTC+8 it reported bookings as
+# having been made eight hours earlier, often on the previous day.
+__all__ = ["Base", "SessionLocal", "clinic_now", "engine", "get_db"]
 
 
 @event.listens_for(Engine, "connect")

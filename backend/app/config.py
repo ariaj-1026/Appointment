@@ -21,6 +21,11 @@ CORS_ORIGINS = os.getenv(
     "http://localhost:5173,http://127.0.0.1:5173",
 ).split(",")
 
+# The clinic's wall clock. Every stored datetime is naive local time, so "now"
+# has to mean one named zone rather than whatever the host is set to — see
+# app/clock.py.
+CLINIC_TIMEZONE = os.getenv("CLINIC_TIMEZONE", "Asia/Manila")
+
 # Appointments may not be booked further ahead than this.
 MAX_BOOKING_DAYS_AHEAD = int(os.getenv("MAX_BOOKING_DAYS_AHEAD", "365"))
 

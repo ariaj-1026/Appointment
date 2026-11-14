@@ -1,10 +1,10 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.database import Base
+from app.database import Base, clinic_now
 
 
 class ReminderStatus(str, enum.Enum):
@@ -30,7 +30,7 @@ class ReminderLog(Base):
     status: Mapped[str] = mapped_column(String(16))
     recipient: Mapped[str | None] = mapped_column(String(255), default=None)
     detail: Mapped[str | None] = mapped_column(Text, default=None)
-    sent_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    sent_at: Mapped[datetime] = mapped_column(DateTime, default=clinic_now)
 
     appointment: Mapped["Appointment"] = relationship(  # noqa: F821
         back_populates="reminder_logs"
