@@ -1,28 +1,39 @@
-import { Link, Navigate, Route, Routes } from 'react-router-dom';
-import { HealthBadge } from './HealthBadge';
+import { Navigate, Route, Routes } from 'react-router-dom';
 
-// Placeholder pages; real screens land in Phases 2–6 (ROADMAP_V2.md).
-function Placeholder({ title, note }: { title: string; note: string }) {
+import { AuthProvider, RequireRole, homeFor, useAuth } from './auth/AuthProvider';
+import { ForgotPassword, PatientLogin, Register, ResetPassword, StaffLogin } from './pages/auth/AuthPages';
+import AdminApp from './pages/admin/AdminApp';
+import EmployeeApp from './pages/employee/EmployeeApp';
+import PortalApp from './pages/portal/PortalApp';
+
+/**
+ *   /login, /register              patients
+ *   /staff/login                   employees and admins (one page)
+ *   /portal/*                      patient portal
+ *   /app/*                         employee app (the v1 screens + requests/inbox)
+ *   /admin/*                       admin console
+ */
+export function App() {
   return (
-    <main style={{ maxWidth: 480, margin: '4rem auto', padding: '0 16px', fontFamily: 'system-ui' }}>
-      <h1>{title}</h1>
-      <p>{note}</p>
-      <nav style={{ display: 'flex', gap: 12 }}>
-        <Link to="/login">Patient login</Link>
-        <Link to="/staff/login">Staff login</Link>
-      </nav>
-      <HealthBadge />
-    </main>
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<PatientLogin />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/staff/login" element={<StaffLogin />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/portal/*" element={<RequireRole roles={['patient']}><PortalApp /></RequireRole>} />
+        <Route path="/app/*" element={<RequireRole roles={['employee']}><EmployeeApp /></RequireRole>} />
+        <Route path="/admin/*" element={<RequireRole roles={['admin']}><AdminApp /></RequireRole>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthProvider>
   );
 }
 
-export function App() {
-  return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<Placeholder title="Patient login" note="Email/password + Google — Phase 2." />} />
-      <Route path="/staff/login" element={<Placeholder title="Staff login" note="Employees and admins — Phase 2." />} />
-      <Route path="*" element={<Placeholder title="Not found" note="No such page." />} />
-    </Routes>
-  );
+function Home() {
+  const { me, loading } = useAuth();
+  if (loading) return <div className="page loading">Loading…</div>;
+  return <Navigate to={me ? homeFor(me.user.role) : '/login'} replace />;
 }

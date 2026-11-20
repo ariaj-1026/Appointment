@@ -1,0 +1,370 @@
+/* v2 additions: auth pages, portal, admin, new statuses, shell. Uses tokens.css. */
+
+/* ---------------------------------------------------------- New statuses */
+:root {
+  --status-pending: #6d4fc2;
+  --status-pending-bg: #f1edfb;
+  --status-declined: #6b7280;
+  --status-declined-bg: #f3f4f6;
+}
+.badge-pending {
+  background: var(--status-pending-bg);
+  color: var(--status-pending);
+}
+.badge-declined {
+  background: var(--status-declined-bg);
+  color: var(--status-declined);
+}
+.appt.s-pending {
+  border-left-color: var(--status-pending);
+  background: var(--status-pending-bg);
+  border-left-style: dashed;
+}
+.appt.s-declined {
+  border-left-color: var(--status-declined);
+  background: var(--status-declined-bg);
+  opacity: 0.7;
+}
+
+/* ---------------------------------------------------------- Links */
+/* The brand yellow is too light for text on white, so links use body ink
+   with a yellow underline that thickens on hover. */
+a {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-decoration-color: var(--color-primary-dark);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+a:hover {
+  text-decoration-color: var(--color-primary-darker);
+}
+a.btn,
+a.nav-link,
+a.whoami {
+  text-decoration: none;
+}
+
+/* ---------------------------------------------------------- Small layout */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.row-end {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.row-wrap {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+.muted {
+  color: var(--color-text-muted);
+}
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+/* ---------------------------------------------------------- Shell */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.whoami {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.role-chip {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.bell {
+  position: relative;
+}
+.bell-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.tab .count {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--status-pending);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.nav-link {
+  text-decoration: none;
+}
+
+/* ---------------------------------------------------------- Auth pages */
+.auth-wrap {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-surface-raised, #fff);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.auth-card h1 {
+  margin: 0;
+  font-size: 22px;
+}
+.auth-card .sub {
+  margin: -8px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+.auth-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 14px;
+}
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+.btn-google {
+  background: #fff;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
+  justify-content: center;
+  gap: 10px;
+}
+.btn-block {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------- Portal */
+.portal-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.appt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+.appt-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.choice-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.choice {
+  text-align: left;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised, #fff);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.choice:hover {
+  border-color: var(--color-primary);
+}
+.choice[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary) inset;
+}
+.choice .choice-title {
+  font-weight: 600;
+  display: block;
+}
+.choice .choice-sub {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.slots {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+}
+.slot {
+  padding: 8px 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised, #fff);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
+}
+.slot:hover {
+  border-color: var(--color-primary);
+}
+.slot[aria-pressed='true'] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-inverse, #fff);
+}
+.steps {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.steps .on {
+  color: var(--color-text);
+  font-weight: 600;
+}
+.date-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.date-pill {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised, #fff);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  color: inherit;
+  text-align: center;
+}
+.date-pill[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary) inset;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------- Inbox / admin */
+.inbox-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  align-items: flex-start;
+}
+.inbox-item:last-child {
+  border-bottom: 0;
+}
+.inbox-item.unread {
+  background: var(--status-pending-bg);
+}
+.inbox-item .grow {
+  flex: 1;
+  min-width: 0;
+}
+.json {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+}
+.pager {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+@media (max-width: 640px) {
+  .whoami {
+    display: none;
+  }
+  .topbar {
+    flex-wrap: wrap;
+  }
+}
+
+.section-title {
+  font-size: 16px;
+  margin: 8px 0 12px;
+}
+hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 4px 0;
+  width: 100%;
+}

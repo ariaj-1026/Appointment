@@ -136,27 +136,43 @@ one employee, one patient login). Port v1 endpoints to Fastify with the same beh
 port v1 tests to Vitest (run against PGlite, an in-process Postgres, with the real migrations).
 Endpoints are **unauthenticated** until Phase 2 — don't point a public deploy at real data yet.
 
-**Phase 2 — Auth & roles**
+**Phase 2 — Auth & roles** ✅
 Patient register/login (+ Google), staff login page, logout, forgot/reset password,
 `requireRole` guard, SPA route guards. Logins written to `activity_log`.
 
-**Phase 3 — Employee app (parity + new flows)**
+**Phase 3 — Employee app (parity + new flows)** ✅
 Port v1 pages to TSX. Add approval queue, notification inbox, override/cancel with reason.
 
-**Phase 4 — Patient portal**
+**Phase 4 — Patient portal** ✅
 Service → staff → slot picker (`GET /availability?service&staff&date`), booking request,
 my-appointments, 24h cancel/reschedule rule.
 
-**Phase 5 — Notifications (Brevo)**
-Email templates for every event above; Render cron sends 24h and 2h reminders;
-every send recorded in `notifications`.
+**Phase 5 — Notifications (Brevo)** ✅
+Email templates for every event above; `POST /api/cron/reminders` sends 24h and 2h
+reminders, triggered every 30 min by GitHub Actions (free; a Render cron job is the paid
+alternative, commented in `render.yaml`); every send recorded in `notifications`.
 
-**Phase 6 — Admin console**
+**Phase 6 — Admin console** ✅
 Account creation/management, hard delete, activity log viewer + export, time zone setting.
 
-**Phase 7 — Hardening & launch**
-Rate-limit auth routes, CORS/cookie config, validation everywhere, error monitoring,
-Neon backups, deploy docs, custom domain + Brevo domain auth, retire `/legacy`.
+**Phase 7 — Hardening & launch** — partly done
+Done: rate limits on login / password reset / booking, Helmet headers, httpOnly SameSite
+cookies, zod validation on every input, body size limit, timing-safe login and cron secret,
+`create-admin` bootstrap, deploy docs.
+Still to do once live: error monitoring (e.g. Sentry), confirm Neon backups / point-in-time
+restore on the chosen plan, custom domain + Brevo domain authentication, decide when to
+delete `/legacy`.
+
+## Known limitations / next candidates
+
+- Patient email addresses aren't verified at sign-up, so a self-registered account is never
+  auto-linked to an existing walk-in record; employees see both. A verify-email step would
+  allow safe merging.
+- `trustProxy: true` takes the client IP from `X-Forwarded-For`; set the exact proxy hop count
+  once the Vercel → Render chain is confirmed, so IPs in the log and rate limits can't be spoofed.
+- Notifications are polled every 60 s rather than pushed.
+- Reminder offsets (24h/2h) and the 24h patient cut-off are constants in `packages/shared`,
+  not admin settings.
 
 ## Decisions log
 

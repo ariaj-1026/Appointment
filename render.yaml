@@ -31,6 +31,22 @@ services:
         sync: false
       - key: BREVO_SENDER_EMAIL
         sync: false
+      - key: BREVO_SENDER_NAME
+        value: Clinic Appointments
       - key: DEFAULT_CLINIC_TIMEZONE
         value: Asia/Manila
-  # Reminder cron (24h + 2h) is added in Phase 5.
+# Reminders: something must POST /api/cron/reminders every 15–30 min with
+# "authorization: Bearer $CRON_SECRET". Free option: .github/workflows/reminders.yml.
+# Paid option: uncomment this Render cron job.
+#  - type: cron
+#    name: clinic-reminders
+#    runtime: node
+#    region: singapore
+#    schedule: '*/15 * * * *'
+#    buildCommand: 'true'
+#    startCommand: 'curl -fsS -X POST "$APP_URL/api/cron/reminders" -H "authorization: Bearer $CRON_SECRET"'
+#    envVars:
+#      - key: APP_URL
+#        sync: false
+#      - key: CRON_SECRET
+#        sync: false
