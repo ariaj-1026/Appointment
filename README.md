@@ -1,288 +1,44 @@
-# Appointment Scheduling System
+# Appointment Scheduling v2
 
-A clinic appointment scheduler. Front desk staff register patient visits, the
-system refuses double-bookings and out-of-hours slots, and every appointment is
-tracked through its lifecycle.
+Clinic appointment system with patient, employee and admin roles.
+Plan and decisions: [ROADMAP_V2.md](ROADMAP_V2.md). The v1 app lives in [legacy/](legacy/).
 
-FastAPI + SQLite on the backend, React + Vite on the frontend.
+| Part | Path | Deploys to |
+|------|------|------------|
+| Web (React + Vite + TSX) | `apps/web` | Vercel |
+| API (Node + Fastify + TS) | `apps/api` | Render |
+| Shared types | `packages/shared` | — |
+| Database | Postgres | Neon |
+| Email | Brevo | — |
 
-See [ROADMAP.md](ROADMAP.md) for the design decisions behind it. All four
-phases of that plan are built.
+## Local setup
 
-## Setup
-
-Developed and tested on Python 3.15 and Node 25. The code needs Python 3.10+
-(`X | None` annotations) and Node 18+; older versions are untested.
-
-```bash
-# Backend
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-
-# Frontend
-cd frontend && npm install && cd ..
-```
-
-## Running
-
-Two processes, in two terminals.
-
-**Terminal 1 — API on :8000**
+Node 20+.
 
 ```bash
-cd backend
-../.venv/bin/python -m uvicorn app.main:app --reload --port 8000
+npm install
+cp apps/api/.env.example apps/api/.env   # fill DATABASE_URL etc. (all optional for now)
+cp apps/web/.env.example apps/web/.env
+npm run build -w @clinic/shared          # once, and after changing packages/shared
 ```
 
-**Terminal 2 — UI on :5173**
+Two terminals:
 
 ```bash
-cd frontend
-npm run dev
+npm run dev:api   # http://localhost:8000
+npm run dev:web   # http://localhost:5173 (proxies /api to the API)
 ```
 
-Then open **http://localhost:5173**. The Vite dev server proxies `/api` to the
-backend, so the browser stays on one origin. If port 5173 is busy Vite picks
-the next free one — check its output. To point the UI at a different API, set
-`VITE_API_TARGET=http://127.0.0.1:8001`.
+If port 8000 is taken, set `PORT` in `apps/api/.env` and `VITE_API_TARGET` in `apps/web/.env` to match.
 
-Interactive API docs are at http://localhost:8000/docs.
+## Deploying
 
-## Demo data
+1. **Neon** — create a project (region Singapore), copy the *pooled* connection string.
+2. **Render** — New → Blueprint → this repo (uses `render.yaml`). Fill the `sync: false`
+   env vars from `apps/api/.env.example`. Note the service URL.
+3. **Vercel** — import the repo, Root Directory `apps/web`, framework Vite. Replace
+   `REPLACE-WITH-RENDER-SERVICE` in `apps/web/vercel.json` with the Render URL.
+   Then set Render's `WEB_ORIGIN` to the Vercel URL.
+4. **Brevo** — create an API key, verify a sender address (Senders), set both on Render.
 
-```bash
-cd backend
-../.venv/bin/python seed.py          # 3 staff, 5 services, 6 patients, 14 appointments + history
-../.venv/bin/python seed.py --reset  # wipe everything first (asks to confirm)
-```
-
-The database is a single file, `backend/clinic.db`, created on first run and
-ignored by git. Delete it to start over.
-
-## Database migrations
-
-The app runs `alembic upgrade head` on startup, so normal use needs no migrate
-step. To drive it by hand:
-
-```bash
-cd backend
-../.venv/bin/python -m alembic upgrade head     # apply
-../.venv/bin/python -m alembic downgrade 0001   # roll back phase 3
-../.venv/bin/python -m alembic current          # which revision am I on
-```
-
-A database created before migrations existed is detected and stamped at `0001`
-automatically, so it upgrades in place instead of being rebuilt.
-
-Auto-migrating on startup suits one process and one SQLite file. For a
-multi-replica deployment, set `AUTO_MIGRATE=0` and migrate as its own deploy
-step so replicas cannot race each other.
-
-## Tests
-
-```bash
-cd backend
-../.venv/bin/python -m pytest
-```
-
-101 tests cover the booking rules: overlap detection, back-to-back bookings,
-per-staff isolation, rebooking cancelled slots, the status machine, business
-hours including split shifts, the past-booking floor, deactivated staff and
-services, rescheduling, search, audit history, the three reports and reminder
-dispatch.
-
-## How it works
-
-**Conflict detection.** Two appointments for the same staff member overlap when
-
-```
-new.starts_at < existing.ends_at AND new.ends_at > existing.starts_at
-```
-
-Strict inequalities on both sides, so back-to-back appointments (one ending
-exactly as the next begins) do not collide. Cancelled and no-show appointments
-are excluded, which is what frees their slot for rebooking. A completed one is
-not excluded — a finished visit still happened, so its slot stays taken.
-
-Appointment length always comes from the service, never the caller: `ends_at`
-is computed at booking time and stored, making the overlap test a single
-comparison with no join.
-
-**The booking window.** A new appointment must start between now and
-`MAX_BOOKING_DAYS_AHEAD` (365) days out. The past bound matters most: without
-it the system accepted a booking for last Thursday and then counted it in
-utilisation and reminders, producing numbers about work nobody could still do.
-A visit that genuinely happened is recorded by booking it and completing it,
-not by back-dating one into a slot that has gone. The floor sits
-`BOOKING_GRACE_MINUTES` (15) behind the clock so that submitting a 14:00 slot
-at 14:01 still works. The calendar dims elapsed slots and refuses to book them;
-appointments already in them stay clickable, since marking what happened is the
-reason to look at yesterday at all.
-
-**Deactivated staff and services.** Deactivating is not deleting — a doctor who
-has left keeps their past appointments, audit history and report rows. It means
-"take no *new* bookings", so the check runs when booking and when rescheduling
-onto someone, not inside the lookups that reports rely on. The booking form and
-the move dialog both drop inactive entries, except the appointment's own
-current staff member or service, which stays listed so a reschedule meant only
-to change the time cannot silently reassign it.
-
-**Business hours.** Each staff member has zero or more open windows per
-weekday. A staff member with no windows at all is unrestricted, so hours are
-opt-in; once any window exists, a weekday without one is closed. Several
-windows on one day express a split shift, and the gap between them is closed.
-The calendar hatches closed cells, so the UI shows the same rule the API
-enforces.
-
-**Status lifecycle.**
-
-```
-scheduled ──► confirmed ──► completed
-    │             │
-    └──► cancelled / no_show ◄──┘
-```
-
-A walk-in may go straight from scheduled to completed. Terminal statuses accept
-no further transitions, so a cancelled appointment cannot be quietly revived —
-book a new one. The UI offers only the legal next moves rather than letting the
-user attempt one that will be rejected.
-
-**Errors.** Rule violations come back as `{code, message, ...detail}` with a
-fitting status: `409` for a slot conflict (listing what clashes), `422` for
-out-of-hours or an illegal status move, `404` for a missing record.
-
-**Time is Philippine time, everywhere.** Appointment starts come straight from
-a `datetime-local` input and business hours are wall-clock times, so nothing is
-converted anywhere — every stored datetime is naive clinic-local.
-
-For that to hold, "now" has to mean one named zone rather than whatever the
-host is set to, so [`app/clock.py`](backend/app/clock.py) pins it to
-**`Asia/Manila`**. A clone running on a laptop abroad or a CI runner on UTC
-still books, reports and timestamps against Philippine time. Set
-`CLINIC_TIMEZONE` to move the clinic. Nothing calls `datetime.now()` or
-`date.today()` directly; `clinic_now()` and `clinic_today()` are the only
-clocks, and the suite passes with the host set to Manila, UTC, New York,
-London, Auckland or Los Angeles.
-
-Record-keeping columns (`changed_at`, `created_at`, `updated_at`, `sent_at`)
-follow the same rule via `default=clinic_now`, and deliberately **not**
-`server_default=func.now()`: on SQLite the latter renders as
-`CURRENT_TIMESTAMP`, which is UTC. Mixing the two misdated history by the
-clinic's offset — a booking made at 21:10 was recorded as 13:10, and anything
-after 16:00 was filed under the previous day.
-
-**History.** Every create, status change and reschedule writes an `audit_logs`
-row in the same transaction as the change itself, so a rejected booking cannot
-leave a log entry claiming it happened. The rows are append-only; the
-appointment detail view renders them as a timeline.
-
-**Reports.** Three of them, at `/api/reports/{daily-summary,utilisation,cancellations}`.
-Two definitions drive every number:
-
-- *Booked minutes* count only appointments that still hold their slot.
-  Cancelled and no-show time was given back, so counting it would overstate how
-  busy the clinic was. Completed time still counts — the visit happened.
-- *The default window looks forward, not back.* Utilisation and cancellations
-  open on last week through the next four weeks. A clinic's appointments are
-  mostly ahead of today, so a retrospective default reported zero for every
-  doctor while Find, which applies no date filter, listed them all — two
-  screens appearing to disagree about the same data. The **Past 7 / Past 30 /
-  Next 30** presets move the window; the daily summary is still one named day.
-- *Available minutes* come from configured business hours. A staff member
-  without hours is unrestricted, so their capacity is **undefined, not zero**:
-  utilisation reports `null` for them, and clinic totals carry a
-  `partial_capacity` flag. The UI shows "not set" rather than 0%.
-
-**Reminders.** `GET /api/reminders/due` lists upcoming appointments that are
-still active and have not been reminded; `POST /api/reminders/dispatch` sends
-them. Delivery sits behind a `ReminderSender` protocol — `ConsoleSender` ships,
-and email or SMS drops in without touching the sweep. Each attempt is logged,
-and a successful log row removes the appointment from the due list, so
-re-running dispatch does not pester the same patient twice. A *failed* attempt
-leaves it due, so a transient outage retries on the next sweep.
-
-## Layout
-
-```
-backend/
-  app/
-    main.py            app factory, CORS, error handlers
-    config.py          env-driven settings
-    clock.py           the clinic's wall clock (Asia/Manila)
-    database.py        engine, session, create_all
-    migrate.py         programmatic Alembic runner
-    models/            SQLAlchemy models
-    schemas/           Pydantic request/response models
-    routers/           appointments, patients, staff, services, reports, reminders
-    services/          scheduling rules, status machine, audit, reports, reminders
-  migrations/          Alembic environment and versions
-  tests/
-  seed.py
-frontend/
-  src/
-    api/client.js      fetch wrapper, structured errors
-    lib/datetime.js    local-time helpers
-    lib/csv.js         CSV export
-    components/        calendar, forms, modal, badges, bars, timeline
-    pages/             Schedule, Search, Reports, Settings
-    styles/            tokens.css, base.css
-  scripts/             contrast-audit.mjs (npm run contrast)
-```
-
-There is no linter configured. The automated checks are `pytest`,
-`npm run build` and `npm run contrast`.
-
-## Using it
-
-**Schedule** opens on a day grid with a column per staff member. Closed hours
-are hatched; click an empty slot to book, or an appointment to open it. The
-**Week** toggle shows seven days for one staff member — a week cannot also fit
-a column each, so that is the trade.
-
-The grid is keyboard-navigable as one tab stop, not forty: Tab into it, then
-
-| Key | Does |
-|---|---|
-| arrows | move between cells |
-| Home / End | first or last column in the row |
-| Ctrl+Home / Ctrl+End | first or last cell in the grid |
-| PageUp / PageDown | jump four rows |
-| Enter / Space | open the appointment, or book the empty slot |
-
-**Find** searches by patient name or phone, staff, service, status and date
-range. **Reports** holds the daily summary, utilisation, cancellations and
-reminder dispatch, each exportable as CSV. **Settings** manages staff, services
-and weekly hours — add a second window to a day for a split shift, and the gap
-between windows is closed.
-
-## Design
-
-Yellow and white, Inter throughout. Tokens live in
-[frontend/src/styles/tokens.css](frontend/src/styles/tokens.css).
-
-```bash
-cd frontend && npm run contrast   # audit every text and UI colour pair
-```
-
-Yellow (`#F5C518`) against white fails contrast for text, so yellow is used for
-fills, borders and backgrounds only — text on yellow is near-black, never
-white. Status colours sit outside the yellow range so they stay distinguishable
-from each other and from the brand colour.
-
-`npm run contrast` checks all 31 pairs the app actually renders against the
-threshold that applies to each — 4.5:1 for body text, 3:1 for focus rings and
-control borders. Two of its findings are baked into the tokens: the no-show
-badge is `#C24300` rather than `#E65100` (3.46:1 failed for text), and form
-controls use `--color-border-input` rather than `--color-border-strong`, which
-measures 1.67:1 and is fine only for decorative rules.
-
-Two measured constraints shape the charts, both verified rather than guessed:
-
-- Brand yellow is **not** used for data marks. It measures 1.59:1 against white
-  and sits outside the readable lightness band, so bars use `--mark-primary`
-  (`#A37F06`), which passes both.
-- There is **no** two-colour cancelled/no-show chart. That pair measures ΔE
-  10.3 for normal colour vision, below the 15 floor, meaning full-colour
-  readers cannot reliably tell them apart either. The cancellation breakdown
-  encodes by column and number instead, and every chart has a table beneath it
-  carrying the same figures.
+Check: `https://<vercel-app>/api/health` should return `{"ok":true,"db":"up",...}`.
