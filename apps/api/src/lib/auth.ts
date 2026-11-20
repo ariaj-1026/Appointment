@@ -70,14 +70,20 @@ export async function registerAuth(app: FastifyInstance, db: DB) {
   });
 }
 
-export function setSession(app: FastifyInstance, reply: FastifyReply, user: User) {
-  const token = app.jwt.sign({ sub: user.id });
+/** Short session when "Remember me" is off: cookie dies with the browser, token after 12h. */
+const SHORT_SESSION_HOURS = 12;
+
+export function setSession(app: FastifyInstance, reply: FastifyReply, user: User, { remember = true } = {}) {
+  const token = remember
+    ? app.jwt.sign({ sub: user.id })
+    : app.jwt.sign({ sub: user.id }, { expiresIn: `${SHORT_SESSION_HOURS}h` });
   reply.setCookie(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: SESSION_DAYS * 24 * 60 * 60,
+    // No maxAge = browser-session cookie, cleared when the browser closes.
+    ...(remember ? { maxAge: SESSION_DAYS * 24 * 60 * 60 } : {}),
   });
 }
 

@@ -1,39 +1,38 @@
-/* Design tokens: yellow and white, per the roadmap.
+/* Design tokens: blue and white.
  *
- * Contrast rule: yellow is for fills, borders and backgrounds only. Any text
- * sitting on yellow uses --color-text, never white — #F5C518 against white
- * fails WCAG for text, and white on #F5C518 is worse.
+ * Contrast rule: text on --color-primary is white (#2563EB on white text
+ * measures 5.17:1, passing WCAG AA).
  */
 
 :root {
   /* Surfaces */
   --color-bg: #ffffff;
-  --color-surface: #fffdf5;
+  --color-surface: #f8fafc;
   --color-surface-raised: #ffffff;
 
-  /* Brand yellow */
-  --color-primary: #f5c518;
-  --color-primary-dark: #d4a70c;
-  --color-primary-darker: #a37f06;
-  --color-accent: #fff3c4;
-  --color-accent-strong: #ffe68a;
+  /* Brand blue */
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-darker: #1e40af;
+  --color-accent: #dbeafe;
+  --color-accent-strong: #bfdbfe;
 
   /* Lines and text */
-  --color-border: #e8e3d3;
-  --color-border-strong: #cfc8b2;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
   /* Form controls and secondary buttons sit white-on-white, so their border is
    * the only thing marking where they are — WCAG 1.4.11 wants 3:1 for that.
    * --color-border-strong measures 1.67:1 and is fine for decorative rules
    * only; this one measures 3.27:1. */
-  --color-border-input: #978e70;
+  --color-border-input: #64748b;
   --color-text: #1a1a1a;
   --color-text-muted: #6b6b6b;
   --color-text-inverse: #ffffff;
 
   /* Status — deliberately outside the yellow range so they stay tellable
    * apart from each other and from the brand colour. */
-  --status-scheduled: #f5c518;
-  --status-scheduled-bg: #fff8dd;
+  --status-scheduled: #2563eb;
+  --status-scheduled-bg: #eff6ff;
   --status-confirmed: #2e7d32;
   --status-confirmed-bg: #e8f5e9;
   --status-completed: #5f6368;
@@ -56,9 +55,9 @@
    * There is deliberately no two-colour cancelled/no-show mark: that pair
    * measures ΔE 10.3 for normal vision, below the 15 floor, so the
    * cancellation breakdown encodes by column and number instead of hue. */
-  --mark-primary: #a37f06;
-  --mark-track: #f5edcf;
-  --mark-muted: #b9b09a;
+  --mark-primary: #2563eb;
+  --mark-track: #dbeafe;
+  --mark-muted: #94a3b8;
 
   /* Feedback */
   --color-danger: #c62828;

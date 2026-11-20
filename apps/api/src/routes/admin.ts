@@ -13,7 +13,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, lt, or, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import { ROLES } from '@clinic/shared';
+import { ROLES, Email } from '@clinic/shared';
 import type { DB } from '../db/client.js';
 import { activity_log, appointments, clinic_settings, patients, staff, users } from '../db/schema.js';
 import { logActivity } from '../domain/activity.js';
@@ -31,7 +31,7 @@ import { password } from './auth.js';
 const StaffRole = z.enum(['employee', 'admin']);
 
 const UserCreate = z.object({
-  email: z.string().trim().toLowerCase().email(),
+  email: Email,
   full_name: z.string().trim().min(1).max(160),
   role: StaffRole,
   password,

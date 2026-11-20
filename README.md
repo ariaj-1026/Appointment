@@ -77,14 +77,12 @@ Do these in order; each step needs a value from the one before.
    replace `REPLACE-WITH-RENDER-SERVICE` in `apps/web/vercel.json` with the Render host.
    Note the site URL, e.g. `https://clinic.vercel.app`.
 5. **Render** again — set `WEB_ORIGIN` to the Vercel URL. Redeploy.
-6. **First admin** — run once from your machine against the Neon database (no demo data):
-   ```bash
-   DATABASE_URL='<neon url>' ADMIN_EMAIL=you@clinic.ph ADMIN_PASSWORD='<12+ chars>' \
-     npm run db:create-admin -w @clinic/api
-   ```
-   Sign in at `/staff/login`, then create employee accounts under **Accounts**. Employees add
-   staff, services and hours under **Settings**. (Want demo data on a test deployment instead?
-   `npm run db:seed` works against any `DATABASE_URL`.)
+6. **First admin** — open `https://<vercel-url>/setup`. Paste `SETUP_TOKEN` from Render
+   (clinic-api → Environment), enter your name, email and a 12+ character password. This
+   works only while no admin exists; afterwards the page refuses and further admins are
+   created under **Accounts**. Then create employee accounts, and have employees set each
+   doctor's **services offered** under Settings → Staff (a doctor with none can't be booked).
+   (Command-line alternative: `npm run db:create-admin -w @clinic/api`, see the script header.)
 7. **Reminders** — GitHub repo → Settings → Secrets → Actions: add `APP_URL` (the Vercel URL)
    and `CRON_SECRET` (copy it from Render). `.github/workflows/reminders.yml` then runs every
    30 minutes.

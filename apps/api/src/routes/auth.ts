@@ -6,6 +6,7 @@
  *                         patient page only; employees and admins on the staff page only
  *  POST /logout
  *  GET  /me
+ *  GET  /session          same as /me, but 200 + null when signed out (no console 401)
  *  POST /forgot-password  always 200 (doesn't reveal whether an account exists)
  *  POST /reset-password
  *  POST /change-password
@@ -16,6 +17,7 @@ import crypto from 'node:crypto';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { z } from 'zod';
+import { Email, PersonName } from '@clinic/shared';
 import type { DB } from '../db/client.js';
 import { password_resets, patients, staff, users, type User } from '../db/schema.js';
 import { logActivity } from '../domain/activity.js';
@@ -35,13 +37,13 @@ export const password = z
   .min(8, 'Password must be at least 8 characters')
   .max(200)
   .refine((p) => /[A-Za-z]/.test(p) && /\d/.test(p), 'Password must contain a letter and a number');
-const email = z.string().trim().toLowerCase().email().max(254);
+const email = Email;
 
 const Register = z.object({
   email,
   password,
-  first_name: z.string().trim().min(1).max(80),
-  last_name: z.string().trim().min(1).max(80),
+  first_name: PersonName,
+  last_name: PersonName,
   phone: z.string().trim().min(3).max(32),
   date_of_birth: isoDate.nullable().optional(),
 });
@@ -50,6 +52,7 @@ const Login = z.object({
   email,
   password: z.string().min(1).max(200),
   portal: z.enum(['patient', 'staff']),
+  remember: z.boolean().optional().default(true),
 });
 
 const RESET_TTL_MINUTES = 60;
@@ -72,13 +75,13 @@ export const authRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { db }) =>
     };
   }
 
-  async function startSession(req: FastifyRequest, reply: FastifyReply, user: User, action = 'login') {
+  async function startSession(req: FastifyRequest, reply: FastifyReply, user: User, action = 'login', remember = true) {
     const [fresh] = await db
       .update(users)
       .set({ last_login_at: now() })
       .where(eq(users.id, user.id))
       .returning();
-    setSession(app, reply, fresh!);
+    setSession(app, reply, fresh!, { remember });
     await logActivity(db, { ...req.actor, user_id: user.id, role: user.role }, {
       action,
       entity: 'user',
@@ -140,18 +143,9 @@ export const authRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { db }) =>
         entity_id: user?.id,
         note: `${body.email} (${body.portal} portal)${user && valid && !user.is_active ? ' — account deactivated' : ''}${user && valid && !portalOk ? ' — wrong login page' : ''}`,
       });
-      if (user && valid && !portalOk) {
-        throw new UnauthorizedError(
-          body.portal === 'patient'
-            ? 'This is a staff account. Please use the staff sign-in page.'
-            : 'This is a patient account. Please use the patient sign-in page.',
-          { code_hint: 'wrong_portal' },
-        );
-      }
-      if (user && valid && !user.is_active) throw new UnauthorizedError('This account has been deactivated.');
       throw new UnauthorizedError('Incorrect email or password.');
     }
-    const fresh = await startSession(req, reply, user);
+    const fresh = await startSession(req, reply, user, 'login', body.remember);
     return me(fresh);
   });
 
@@ -164,6 +158,7 @@ export const authRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { db }) =>
   });
 
   app.get('/me', async (req) => me(currentUser(req)));
+  app.get('/session', async (req) => (req.auth ? me(req.auth) : null));
 
   // ---- Passwords ----
   app.post('/forgot-password', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req) => {
@@ -224,6 +219,55 @@ export const authRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { db }) =>
     await db.update(users).set({ password_hash: await hashPassword(body.new_password) }).where(eq(users.id, user.id));
     await logActivity(db, req.actor, { action: 'password_changed', entity: 'user', entity_id: user.id });
     return { ok: true };
+  });
+
+  // ---- First-admin setup ----
+  // Live deployments start with no admin. While none exists, /setup lets the
+  // person holding SETUP_TOKEN (from the Render dashboard) create one. After
+  // that the endpoint refuses forever; further admins are made in the console.
+  const adminExists = async () => (await db.$count(users, eq(users.role, 'admin'))) > 0;
+
+  app.get('/setup', async () => ({
+    needed: !(await adminExists()),
+    enabled: Boolean(env.SETUP_TOKEN),
+  }));
+
+  app.post('/setup', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (req, reply) => {
+    const body = parse(
+      z.object({
+        token: z.string().min(1),
+        full_name: z.string().trim().min(1).max(160),
+        email,
+        password: password.refine((p) => p.length >= 12, 'Admin passwords need at least 12 characters'),
+      }),
+      req.body,
+    );
+    if (await adminExists()) throw new ValidationError('Setup is already complete. Sign in at /staff/login.');
+    const given = Buffer.from(body.token);
+    const expected = Buffer.from(env.SETUP_TOKEN ?? '');
+    if (!env.SETUP_TOKEN || given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
+      await logActivity(db, req.actor, { action: 'setup_failed', entity: 'user', note: body.email });
+      throw new UnauthorizedError('That setup token is not correct.');
+    }
+    let admin: User;
+    try {
+      [admin] = (await db
+        .insert(users)
+        .values({ email: body.email, full_name: body.full_name, role: 'admin', password_hash: await hashPassword(body.password) })
+        .returning()) as [User];
+    } catch (err) {
+      if (isUniqueViolation(err)) throw new ValidationError('That email is already used by another account.');
+      throw err;
+    }
+    await logActivity(db, { ...req.actor, user_id: admin.id, role: 'admin' }, {
+      action: 'create',
+      entity: 'user',
+      entity_id: admin.id,
+      after: { email: body.email, role: 'admin' },
+      note: 'First admin created via /setup',
+    });
+    const fresh = await startSession(req, reply, admin);
+    return reply.status(201).send(await me(fresh));
   });
 
   // ---- Google (patients only) ----

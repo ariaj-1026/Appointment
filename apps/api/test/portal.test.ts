@@ -7,6 +7,8 @@ import {
   book,
   call,
   makePortalPatient,
+  makeService,
+  makeStaff,
   ok,
   outbox,
   setupTestApp,
@@ -149,5 +151,30 @@ describe('my appointments', () => {
     expect(p.phone).toBe('0999');
     expect(p.notes).toBeNull();
     expect(p.user_id).toBe(s.pia.user.id);
+  });
+});
+
+describe('specialties', () => {
+  it('only offers and accepts doctors who perform the chosen service', async () => {
+    const s = await setup();
+    const dentist = await makeStaff(ctx, 'Dr. Santos', { role: 'Dentist' });
+    const cleaning = await makeService(ctx, 'Dental Cleaning', 45);
+    await ok(ctx, 'PUT', `/api/staff/${dentist.id}/services`, [cleaning.id]);
+    await ok(ctx, 'PUT', `/api/staff/${s.staff.id}/services`, [s.service.id]);
+
+    const forCleaning = await ok(ctx, 'GET', `/api/portal/staff?service_id=${cleaning.id}`, undefined, s.pia.as);
+    expect(forCleaning.map((x: any) => x.full_name)).toEqual(['Dr. Santos']);
+
+    const wrong = await call(ctx, 'POST', '/api/portal/appointments', {
+      service_id: cleaning.id, staff_id: s.staff.id, starts_at: `${MONDAY}T10:00`,
+    }, s.pia.as);
+    expect(wrong.status).toBe(422);
+    expect(wrong.body.code_hint).toBe('service_not_offered');
+
+    // Employees are held to the same rule.
+    const emp = await book(ctx, { ...s, service: cleaning }, `${MONDAY}T10:00`);
+    expect(emp.body.message).toBe('Dr. Ilagan (Physician) does not offer Dental Cleaning.');
+    const staffList = await ok(ctx, 'GET', '/api/staff');
+    expect(staffList.find((x: any) => x.id === dentist.id).service_ids).toEqual([cleaning.id]);
   });
 });

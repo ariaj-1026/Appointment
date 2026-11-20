@@ -18,6 +18,7 @@ import {
   patients,
   services,
   staff,
+  staff_services,
   type Service,
   type Staff,
 } from '../db/schema.js';
@@ -86,6 +87,30 @@ export function assertServiceBookable(service: Service): void {
       service_id: service.id,
     });
   }
+}
+
+/** A staff member can only be booked for a service in their specialty. */
+export async function assertStaffOffersService(conn: Conn, member: Staff, service: Service): Promise<void> {
+  const [link] = await conn
+    .select()
+    .from(staff_services)
+    .where(and(eq(staff_services.staff_id, member.id), eq(staff_services.service_id, service.id)));
+  if (!link) {
+    throw new ValidationError(`${member.full_name} (${member.role}) does not offer ${service.name}.`, {
+      code_hint: 'service_not_offered',
+      staff_id: member.id,
+      service_id: service.id,
+    });
+  }
+}
+
+/** staff_id → service ids they offer. */
+export async function servicesByStaff(conn: Conn): Promise<Map<number, number[]>> {
+  const out = new Map<number, number[]>();
+  for (const r of await conn.select().from(staff_services)) {
+    out.set(r.staff_id, [...(out.get(r.staff_id) ?? []), r.service_id]);
+  }
+  return out;
 }
 
 /** Appointment length always comes from the service, never the caller. */

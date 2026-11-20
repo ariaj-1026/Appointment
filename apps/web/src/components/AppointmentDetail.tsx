@@ -62,7 +62,14 @@ export default function AppointmentDetail({
   const keepCurrent = <T extends { id: number; is_active: boolean }>(rows: T[], currentId: number) =>
     rows.filter((r) => r.is_active || r.id === currentId);
   const bookableStaff = keepCurrent(staff, appointment.staff_id);
-  const bookableServices = keepCurrent(services, appointment.service_id);
+  // Only services the chosen staff member offers (plus the current one when
+  // staying with the same doctor, so a time-only move never forces a change).
+  const chosenStaff = staff.find((s) => String(s.id) === move.staff_id);
+  const bookableServices = keepCurrent(services, appointment.service_id).filter(
+    (s) =>
+      chosenStaff?.service_ids?.includes(s.id) ||
+      (s.id === appointment.service_id && Number(move.staff_id) === appointment.staff_id),
+  );
 
   const reasonRequired = (target: AppointmentStatus | 'decline') =>
     target === 'decline' || (hasAccount && target === 'cancelled');
@@ -209,7 +216,16 @@ export default function AppointmentDetail({
             <div className="field-row">
               <div className="field">
                 <label htmlFor="new-staff">Staff member</label>
-                <select id="new-staff" value={move.staff_id} onChange={(e) => setMove((m) => ({ ...m, staff_id: e.target.value }))}>
+                <select id="new-staff" value={move.staff_id} onChange={(e) => {
+                  const id = e.target.value;
+                  const ids = staff.find((s) => String(s.id) === id)?.service_ids ?? [];
+                  setMove((m) => ({
+                    ...m,
+                    staff_id: id,
+                    // Keep the service if the new doctor offers it, else their first.
+                    service_id: ids.includes(Number(m.service_id)) ? m.service_id : String(ids[0] ?? m.service_id),
+                  }));
+                }}>
                   {bookableStaff.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.full_name}

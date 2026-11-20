@@ -85,3 +85,42 @@ export interface HealthResponse {
   db: 'up' | 'down' | 'unconfigured';
   time: string;
 }
+
+// ---- Email ----
+/**
+ * Allowed email shape: letters, digits and . _ + - before the @; letters,
+ * digits, dots and hyphens after it, ending in a 2+ letter TLD. Stricter
+ * than RFC 5322 on purpose — quotes, spaces, slashes, semicolons, % etc. are
+ * refused. (SQL injection is already impossible: every query is
+ * parameterized. This is input hygiene on top of that.)
+ */
+export const EMAIL_PATTERN = '[A-Za-z0-9](?:[A-Za-z0-9._+\\-]{0,62}[A-Za-z0-9_+\\-])?@[A-Za-z0-9](?:[A-Za-z0-9\\-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9\\-]{0,61}[A-Za-z0-9])?)*\\.[A-Za-z]{2,24}';
+export const EMAIL_RE = new RegExp(`^${EMAIL_PATTERN}$`);
+/** Keystroke filter: drop any character an email can never contain, keep one @. */
+export function cleanEmailInput(v: string): string {
+  const s = v.replace(/[^A-Za-z0-9._+\-@]/g, '');
+  const at = s.indexOf('@');
+  return at === -1 ? s : s.slice(0, at + 1) + s.slice(at + 1).replace(/@/g, '');
+}
+
+// ---- Person names ----
+/** Letters (any language, incl. ñ/é), single spaces, hyphens and apostrophes. No digits or symbols. */
+export const NAME_RE = /^\p{L}[\p{L}\p{M}]*(?:[ '\-’][\p{L}\p{M}]+)*$/u;
+/** Keystroke filter for name inputs. */
+export function cleanNameInput(v: string): string {
+  return v.replace(/[^\p{L}\p{M} '\-’]/gu, '').replace(/^[ '\-’]+/, '').replace(/ {2,}/g, ' ');
+}
+export const PersonName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .refine((v) => NAME_RE.test(v), { message: 'Use letters only (spaces, hyphens and apostrophes are fine).' });
+export const Email = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(254)
+  .refine((v) => EMAIL_RE.test(v) && !v.includes('..'), {
+    message: 'Enter a valid email using only letters, numbers and . _ + -',
+  });

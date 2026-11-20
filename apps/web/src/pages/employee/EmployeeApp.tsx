@@ -70,15 +70,15 @@ export default function EmployeeApp() {
   const activeServices = refs.services.filter((s) => s.is_active);
 
   const nav = [
-    { to: '/app', label: 'Schedule', end: true },
-    { to: '/app/requests', label: 'Requests', count: pendingCount },
-    { to: '/app/find', label: 'Find' },
-    { to: '/app/reports', label: 'Reports' },
-    { to: '/app/settings', label: 'Settings' },
+    { to: '/app', label: 'Schedule', end: true, icon: 'calendar' as const },
+    { to: '/app/requests', label: 'Requests', count: pendingCount, icon: 'inbox' as const },
+    { to: '/app/find', label: 'Find', icon: 'search' as const },
+    { to: '/app/reports', label: 'Reports', icon: 'chart' as const },
+    { to: '/app/settings', label: 'Settings', icon: 'settings' as const },
   ];
 
   return (
-    <Shell nav={nav} inboxPath="/app/inbox" accountPath="/app/account" unread={unread}>
+    <Shell nav={nav} inboxPath="/app/inbox" accountPath="/app/account" unread={unread} onRead={refreshUnread}>
       {refs.loading ? (
         <div className="page loading">Loading…</div>
       ) : refs.error ? (

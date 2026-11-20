@@ -714,30 +714,28 @@ function Reminders() {
 
   return (
     <>
-      <div className="toolbar">
-        <div className="field" style={{ maxWidth: 160 }}>
-          <label htmlFor="rm-hours">Look ahead (hours)</label>
-          <input
-            id="rm-hours"
-            type="number"
-            min={HOURS_MIN}
-            max={HOURS_MAX}
-            value={hoursText}
-            onChange={(e) => setHoursText(e.target.value)}
-            onBlur={normaliseHours}
-          />
-          <span className="hint">
-            {withinHours === 24
-              ? 'The next day'
-              : `The next ${withinHours} hours (max ${HOURS_MAX})`}
-          </span>
+      <div className="toolbar reminder-bar">
+        <div className="reminder-row">
+          <div className="field">
+            <label htmlFor="rm-hours">Look ahead (hours)</label>
+            <input
+              id="rm-hours"
+              type="number"
+              min={HOURS_MIN}
+              max={HOURS_MAX}
+              value={hoursText}
+              onChange={(e) => setHoursText(e.target.value)}
+              onBlur={normaliseHours}
+              aria-describedby="rm-hours-hint"
+            />
+          </div>
+          <button className="btn btn-primary" onClick={send} disabled={sending || !due.length}>
+            {sending ? 'Sending…' : `Send ${due.length} reminder${due.length === 1 ? '' : 's'}`}
+          </button>
         </div>
-        <button className="btn btn-primary" onClick={send} disabled={sending || !due.length}>
-          {sending ? 'Sending…' : `Send ${due.length} reminder${due.length === 1 ? '' : 's'}`}
-        </button>
-        <span className="hint">
-          Delivery goes to the console sender; email or SMS drops in behind the
-          same interface.
+        <span className="hint" id="rm-hours-hint">
+          {withinHours === 24 ? 'Covers the next day' : `Covers the next ${withinHours} hours (max ${HOURS_MAX})`}
+          {' · '}Delivery goes to the console sender; email or SMS drops in behind the same interface.
         </span>
       </div>
 

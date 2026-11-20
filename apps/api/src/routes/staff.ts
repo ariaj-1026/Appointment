@@ -1,10 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Conn, DB } from '../db/client.js';
-import { business_hours, staff } from '../db/schema.js';
+import { business_hours, services, staff, staff_services } from '../db/schema.js';
 import { logActivity } from '../domain/activity.js';
-import { getStaff } from '../domain/scheduling.js';
+import { getStaff, servicesByStaff } from '../domain/scheduling.js';
 import { ValidationError } from '../lib/errors.js';
 import { clockTime, idParams, parse, queryBool } from '../lib/validate.js';
 import { pick } from './patients.js';
@@ -32,13 +32,40 @@ async function listHours(db: Conn, staffId: number) {
 }
 
 export const staffRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { db }) => {
+  /** Each row carries service_ids: the services in that member's specialty. */
   app.get('/', async (req) => {
     const q = parse(z.object({ include_inactive: queryBool.default(false) }), req.query);
-    return db
+    const rows = await db
       .select()
       .from(staff)
       .where(q.include_inactive ? undefined : eq(staff.is_active, true))
       .orderBy(asc(staff.full_name));
+    const offered = await servicesByStaff(db);
+    return rows.map((r) => ({ ...r, service_ids: offered.get(r.id) ?? [] }));
+  });
+
+  /** Replace the set of services this staff member performs. */
+  app.put('/:id/services', async (req) => {
+    const { id } = parse(idParams, req.params);
+    const ids = [...new Set(parse(z.array(z.number().int().positive()), req.body))];
+    await getStaff(db, id);
+    if (ids.length) {
+      const found = await db.select({ id: services.id }).from(services).where(inArray(services.id, ids));
+      if (found.length !== ids.length) throw new ValidationError('One or more services do not exist.');
+    }
+    const before = (await servicesByStaff(db)).get(id) ?? [];
+    await db.transaction(async (tx) => {
+      await tx.delete(staff_services).where(eq(staff_services.staff_id, id));
+      if (ids.length) await tx.insert(staff_services).values(ids.map((service_id) => ({ staff_id: id, service_id })));
+      await logActivity(tx, req.actor, {
+        action: 'update',
+        entity: 'staff_services',
+        entity_id: id,
+        before: { service_ids: before },
+        after: { service_ids: ids },
+      });
+    });
+    return { staff_id: id, service_ids: ids };
   });
 
   app.post('/', async (req, reply) => {
@@ -58,7 +85,8 @@ export const staffRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { db }) =
 
   app.get('/:id', async (req) => {
     const { id } = parse(idParams, req.params);
-    return getStaff(db, id);
+    const member = await getStaff(db, id);
+    return { ...member, service_ids: (await servicesByStaff(db)).get(id) ?? [] };
   });
 
   app.patch('/:id', async (req) => {

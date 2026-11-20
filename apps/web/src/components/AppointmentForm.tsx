@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
+import { EMAIL_PATTERN } from '@clinic/shared';
 
 import { api, ApiError } from '../api/client'
 import type { Appointment, Patient, Service, Staff } from '../api/types'
@@ -44,14 +45,26 @@ export default function AppointmentForm({
     api.listPatients({ limit: 500 }).then(setPatients).catch(setError)
   }, [])
 
+  // A doctor only offers the services in their specialty, so the service
+  // list follows the chosen staff member.
+  const offered = useMemo(() => {
+    const member = staff.find((s) => String(s.id) === String(form.staff_id))
+    const ids = member?.service_ids ?? []
+    return services.filter((s) => ids.includes(s.id))
+  }, [staff, services, form.staff_id])
+
   useEffect(() => {
-    // Preselect the only sensible defaults so the form is one click shorter.
-    setForm((f) => ({
-      ...f,
-      staff_id: f.staff_id || staff[0]?.id || '',
-      service_id: f.service_id || services[0]?.id || '',
-    }))
-  }, [staff, services])
+    setForm((f) => ({ ...f, staff_id: f.staff_id || staff[0]?.id || '' }))
+  }, [staff])
+
+  useEffect(() => {
+    // Keep the service valid for the chosen doctor; preselect the first.
+    setForm((f) =>
+      offered.some((s) => String(s.id) === String(f.service_id))
+        ? f
+        : { ...f, service_id: offered[0]?.id ?? '' },
+    )
+  }, [offered])
 
   const selectedService = useMemo(
     () => services.find((s) => String(s.id) === String(form.service_id)),
@@ -221,7 +234,7 @@ export default function AppointmentForm({
                 <label htmlFor="em">Email (optional)</label>
                 <input
                   id="em"
-                  type="email"
+                  type="email" pattern={EMAIL_PATTERN} title="Letters, numbers and . _ + - only, e.g. name@example.com"
                   value={newPatient.email}
                   onChange={setPatientField('email')}
                 />
@@ -249,12 +262,17 @@ export default function AppointmentForm({
               onChange={set('service_id')}
               required
             >
-              {services.map((s) => (
+              {offered.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.duration_minutes} min)
                 </option>
               ))}
             </select>
+            {offered.length === 0 && (
+              <span className="hint hint-warn">
+                This staff member has no services set. Add them under Settings → Staff.
+              </span>
+            )}
           </div>
         </div>
 

@@ -38,7 +38,7 @@ export default function Settings({ staff, services, reload }: { staff: Staff[]; 
         </div>
       </div>
 
-      {tab === 'staff' && <StaffPanel staff={staff} reload={reload} />}
+      {tab === 'staff' && <StaffPanel staff={staff} services={services} reload={reload} />}
       {tab === 'services' && <ServicesPanel services={services} reload={reload} />}
       {tab === 'hours' && <HoursPanel staff={staff} reload={reload} />}
     </div>
@@ -47,7 +47,26 @@ export default function Settings({ staff, services, reload }: { staff: Staff[]; 
 
 /* ------------------------------------------------------------------ Staff */
 
-function StaffPanel({ staff, reload }: { staff: Staff[]; reload: Reload }) {
+function StaffPanel({ staff, services, reload }: { staff: Staff[]; services: Service[]; reload: Reload }) {
+  const [editing, setEditing] = useState<number | null>(null)
+  const [picked, setPicked] = useState<number[]>([])
+
+  function startEdit(member: Staff) {
+    setEditing(member.id)
+    setPicked(member.service_ids ?? [])
+  }
+
+  async function saveServices(member: Staff) {
+    setError(null)
+    try {
+      await api.setStaffServices(member.id, picked)
+      setEditing(null)
+      await reload()
+    } catch (err) {
+      setError(err)
+    }
+  }
+
   const [form, setForm] = useState({ full_name: '', role: '' })
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
@@ -115,6 +134,7 @@ function StaffPanel({ staff, reload }: { staff: Staff[]; reload: Reload }) {
             <tr>
               <th>Name</th>
               <th>Role</th>
+              <th>Services offered</th>
               <th>Status</th>
               <th />
             </tr>
@@ -122,7 +142,7 @@ function StaffPanel({ staff, reload }: { staff: Staff[]; reload: Reload }) {
           <tbody>
             {staff.length === 0 && (
               <tr>
-                <td colSpan={4} className="cell-muted">
+                <td colSpan={5} className="cell-muted">
                   No staff yet.
                 </td>
               </tr>
@@ -132,12 +152,51 @@ function StaffPanel({ staff, reload }: { staff: Staff[]; reload: Reload }) {
                 <td className="cell-strong">{m.full_name}</td>
                 <td>{m.role}</td>
                 <td>
+                  {editing === m.id ? (
+                    <div className="stack-sm">
+                      {services.map((sv) => (
+                        <label key={sv.id} className="row-wrap" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 14 }}>
+                          <input
+                            type="checkbox"
+                            style={{ width: 16, minHeight: 16 }}
+                            checked={picked.includes(sv.id)}
+                            onChange={(e) =>
+                              setPicked((p) => (e.target.checked ? [...p, sv.id] : p.filter((x) => x !== sv.id)))
+                            }
+                          />
+                          {sv.name}
+                          {!sv.is_active && <span className="cell-muted">(inactive)</span>}
+                        </label>
+                      ))}
+                      <div className="row-wrap">
+                        <button className="btn btn-primary btn-sm" onClick={() => void saveServices(m)}>
+                          Save
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setEditing(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (m.service_ids?.length ?? 0) === 0 ? (
+                    <span className="hint hint-warn">None — can't be booked</span>
+                  ) : (
+                    <span className="cell-muted">
+                      {services.filter((sv) => m.service_ids!.includes(sv.id)).map((sv) => sv.name).join(', ')}
+                    </span>
+                  )}
+                </td>
+                <td>
                   <span className={`badge badge-${m.is_active ? 'confirmed' : 'completed'}`}>
                     {m.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
                 <td>
                   <div className="row-actions">
+                    {editing !== m.id && (
+                      <button className="btn btn-secondary btn-sm" onClick={() => startEdit(m)}>
+                        Edit services
+                      </button>
+                    )}
                     <button className="btn btn-secondary btn-sm" onClick={() => toggle(m)}>
                       {m.is_active ? 'Deactivate' : 'Reactivate'}
                     </button>
@@ -149,8 +208,9 @@ function StaffPanel({ staff, reload }: { staff: Staff[]; reload: Reload }) {
         </table>
       </div>
       <p className="hint" style={{ marginTop: 12 }}>
-        Deactivating hides a staff member from new bookings. Their existing
-        appointments are left untouched.
+        A staff member can only be booked for the services ticked here — patients
+        choosing a service see only the doctors who offer it. Deactivating hides a
+        staff member from new bookings; existing appointments are left untouched.
       </p>
     </>
   )

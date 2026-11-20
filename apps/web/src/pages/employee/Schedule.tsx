@@ -88,7 +88,7 @@ export default function Schedule({
   const notSetUp = activeStaff.length === 0 || services.length === 0
 
   return (
-    <div className="page">
+    <div className="page page-wide">
       <div className="page-head">
         <div>
           <h1>Schedule</h1>

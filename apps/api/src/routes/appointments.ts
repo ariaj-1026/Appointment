@@ -8,6 +8,7 @@ import { APPOINTMENT_ACTIONS, appointmentHistory, logActivity } from '../domain/
 import {
   assertServiceBookable,
   assertStaffBookable,
+  assertStaffOffersService,
   computeEnd,
   getAppointment,
   getPatient,
@@ -143,6 +144,7 @@ export const appointmentRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { d
       const service = await getService(tx, body.service_id);
       assertStaffBookable(member);
       assertServiceBookable(service);
+      await assertStaffOffersService(tx, member, service);
 
       const endsAt = computeEnd(startsAt, service);
       await validateSlot(tx, { staff_id: member.id, starts_at: startsAt, ends_at: endsAt }, zone);
@@ -281,12 +283,19 @@ export const appointmentRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { d
       assertReschedulable(current.status);
 
       const staffId = body.staff_id ?? current.staff_id;
-      if (body.staff_id) assertStaffBookable(await getStaff(tx, body.staff_id));
+      let member = current.staff;
+      if (body.staff_id) {
+        member = await getStaff(tx, body.staff_id);
+        assertStaffBookable(member);
+      }
 
       let service = current.service;
       if (body.service_id) {
         service = await getService(tx, body.service_id);
         assertServiceBookable(service);
+      }
+      if (staffId !== current.staff_id || service.id !== current.service_id) {
+        await assertStaffOffersService(tx, member, service);
       }
 
       const endsAt = computeEnd(startsAt, service);

@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { asc, eq, ilike, or } from 'drizzle-orm';
 import { z } from 'zod';
+import { Email, PersonName } from '@clinic/shared';
 import type { DB } from '../db/client.js';
 import { patients } from '../db/schema.js';
 import { logActivity } from '../domain/activity.js';
@@ -10,10 +11,10 @@ import { getClinicZone } from '../lib/settings.js';
 import { idParams, isoDate, parse } from '../lib/validate.js';
 
 const fields = {
-  first_name: z.string().trim().min(1).max(80),
-  last_name: z.string().trim().min(1).max(80),
+  first_name: PersonName,
+  last_name: PersonName,
   phone: z.string().trim().min(3).max(32),
-  email: z.string().trim().toLowerCase().email().nullable(),
+  email: Email.nullable(),
   date_of_birth: isoDate.nullable(),
   notes: z.string().nullable(),
 };

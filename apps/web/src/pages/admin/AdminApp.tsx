@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react';
+import { EMAIL_PATTERN } from '@clinic/shared';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { api } from '../../api/client';
@@ -10,14 +11,14 @@ import Modal from '../../components/Modal';
 import { AccountPage, Shell } from '../../components/Shell';
 import StatusBadge from '../../components/StatusBadge';
 import { downloadCsv } from '../../lib/csv';
-import { formatDateShort, formatDateTime, formatTimeRange, getClinicZone, todayInput, addDays } from '../../lib/datetime';
+import { formatDateShort, formatDateTime, formatTimeRange, getClinicZone, nowInput, todayInput, addDays } from '../../lib/datetime';
 
 export default function AdminApp() {
   const nav = [
-    { to: '/admin', label: 'Accounts', end: true },
-    { to: '/admin/activity', label: 'Activity log' },
-    { to: '/admin/records', label: 'Records' },
-    { to: '/admin/settings', label: 'Settings' },
+    { to: '/admin', label: 'Accounts', end: true, icon: 'users' as const },
+    { to: '/admin/activity', label: 'Activity log', icon: 'activity' as const },
+    { to: '/admin/records', label: 'Records', icon: 'folder' as const },
+    { to: '/admin/settings', label: 'Settings', icon: 'settings' as const },
   ];
   return (
     <Shell nav={nav} accountPath="/admin/account">
@@ -217,7 +218,7 @@ function CreateUser({ staff, onClose, onCreated }: { staff: Staff[]; onClose: ()
         </div>
         <div className="field">
           <label htmlFor="cu-email">Email</label>
-          <input id="cu-email" type="email" value={form.email} onChange={set('email')} required />
+          <input id="cu-email" type="email" pattern={EMAIL_PATTERN} title="Letters, numbers and . _ + - only, e.g. name@example.com" value={form.email} onChange={set('email')} required />
         </div>
         <div className="field">
           <label htmlFor="cu-pw">Temporary password</label>
@@ -625,7 +626,11 @@ function Records() {
       <div className="page-head">
         <div>
           <h1>Records</h1>
-          <div className="sub">Read-only. Deleting is permanent; a full copy is kept in the activity log.</div>
+          <div className="sub">
+            {tab === 'appointments'
+              ? 'Read-only.'
+              : 'Read-only. Deleting is permanent; a full copy is kept in the activity log.'}
+          </div>
         </div>
         <div className="spacer" />
         <div className="tabs">
@@ -657,7 +662,6 @@ function Records() {
                   <th>Patient</th>
                   <th>Service / staff</th>
                   <th>Status</th>
-                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -673,16 +677,6 @@ function Records() {
                     </td>
                     <td>
                       <StatusBadge status={a.status} />
-                    </td>
-                    <td>
-                      <div className="row-actions">
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => setDeleting({ kind: 'appointment', id: a.id, label: `${a.patient.full_name}, ${formatDateShort(a.starts_at)} ${formatTimeRange(a.starts_at, a.ends_at)}` })}
-                        >
-                          Delete
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))}
@@ -841,12 +835,14 @@ function ClinicSettings() {
           {saved && <div className="alert alert-info">Time zone saved.</div>}
           <div className="field">
             <label htmlFor="tz">Clinic time zone</label>
-            <input id="tz" list="tz-list" value={zone} onChange={(e) => setZone(e.target.value)} required />
-            <datalist id="tz-list">
-              {zones.map((z) => (
-                <option key={z} value={z} />
+            <select id="tz" value={zone} onChange={(e) => setZone(e.target.value)}>
+              {(zones.includes(zone) ? zones : [zone, ...zones]).map((z) => (
+                <option key={z} value={z}>
+                  {z.replace(/_/g, ' ')}
+                </option>
               ))}
-            </datalist>
+            </select>
+            <span className="hint">Currently {getClinicZone().replace(/_/g, ' ')} — now {nowInput().replace('T', ' ')} there.</span>
             <span className="hint">
               Default Asia/Manila. Business hours are wall-clock times in this zone; existing appointments keep their exact moment and
               are shown in the new zone.

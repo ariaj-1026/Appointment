@@ -168,10 +168,10 @@ h3 {
   cursor: not-allowed;
 }
 
-/* Dark text on yellow: never white, see tokens.css */
+/* White text on blue, see tokens.css */
 .btn-primary {
   background: var(--color-primary);
-  color: var(--color-text);
+  color: var(--color-text-inverse);
   font-weight: 600;
 }
 
@@ -285,6 +285,7 @@ input[type='time']::-webkit-calendar-picker-indicator:hover {
 
 .field-row {
   display: grid;
+  align-items: end;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: var(--space-4);
 }
@@ -418,7 +419,7 @@ tbody tr:last-child td {
 
 .badge-scheduled {
   background: var(--status-scheduled-bg);
-  color: #8a6d03;
+  color: #1d4ed8;
 }
 .badge-confirmed {
   background: var(--status-confirmed-bg);
@@ -812,7 +813,7 @@ tbody tr:last-child td {
 
 .alert-info {
   background: var(--color-accent);
-  color: #6b5503;
+  color: #1e40af;
   border: 1px solid var(--color-accent-strong);
 }
 

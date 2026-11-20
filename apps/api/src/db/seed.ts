@@ -36,6 +36,16 @@ const SERVICES = [
   ['Follow-up Visit', 20, 'Review of an ongoing treatment'],
 ] as const;
 
+// Which services each doctor performs (index into SERVICES).
+// Ilagan (GP): consultation, vaccination, minor procedure, follow-up
+// Santos (Dentist): dental cleaning, follow-up
+// Reyes (Pediatrician): consultation, vaccination, follow-up
+const SPECIALTIES: number[][] = [
+  [0, 2, 3, 4],
+  [1, 4],
+  [0, 2, 4],
+];
+
 const PATIENTS = [
   ['Ana', 'Cruz', '0917-555-0101', 'ana.cruz@example.com', '1991-04-12'],
   ['Ben', 'Reyes', '0917-555-0202', 'ben.reyes@example.com', '1985-09-30'],
@@ -89,6 +99,8 @@ export async function seed(db: DB, { reset = false } = {}) {
       TRUNCATE notifications, activity_log, appointments, business_hours, patients,
                services, staff, password_resets, users RESTART IDENTITY CASCADE`);
   }
+  // TRUNCATE … CASCADE also empties clinic_settings (it references users).
+  await db.insert(t.clinic_settings).values({ id: 1 }).onConflictDoNothing();
   const zone = await getClinicZone(db);
   const hash = await hashPassword(PASSWORD);
 
@@ -97,7 +109,7 @@ export async function seed(db: DB, { reset = false } = {}) {
   const employee = await upsertUser(db, 'employee@clinic.local', 'employee', 'Front Desk', hash);
 
   // ---- Staff + hours ----
-  const staffRows = [];
+  const staffRows: t.Staff[] = [];
   for (const [full_name, role] of STAFF) {
     let [member] = await db.select().from(t.staff).where(eq(t.staff.full_name, full_name));
     if (!member) {
@@ -113,11 +125,19 @@ export async function seed(db: DB, { reset = false } = {}) {
   }
 
   // ---- Services ----
-  const serviceRows = [];
+  const serviceRows: t.Service[] = [];
   for (const [name, duration_minutes, description] of SERVICES) {
     let [svc] = await db.select().from(t.services).where(eq(t.services.name, name));
     if (!svc) [svc] = await db.insert(t.services).values({ name, duration_minutes, description }).returning();
     serviceRows.push(svc!);
+  }
+
+  // ---- Specialties ----
+  for (const [i, member] of staffRows.entries()) {
+    await db
+      .insert(t.staff_services)
+      .values(SPECIALTIES[i]!.map((sv) => ({ staff_id: member.id, service_id: serviceRows[sv]!.id })))
+      .onConflictDoNothing();
   }
 
   // ---- Patients (Ana gets a portal login) ----

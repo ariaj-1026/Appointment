@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
+import { env } from '../src/env.js';
 import { PASSWORD, call, makePortalPatient, ok, outbox, setupTestApp } from './helpers.js';
 
 const ctx = setupTestApp();
@@ -64,13 +65,21 @@ describe('login', () => {
     expect((await login('admin@test.local', 'staff')).status).toBe(200);
   });
 
-  it('refuses the wrong page with a helpful message', async () => {
+  it('refuses the wrong page without revealing the account type', async () => {
     const p = await makePortalPatient(ctx);
     const staffPage = await login(p.user.email, 'staff');
     expect(staffPage.status).toBe(401);
-    expect(staffPage.body.message).toBe('This is a patient account. Please use the patient sign-in page.');
-    const patientPage = await login('employee@test.local', 'patient');
-    expect(patientPage.body.message).toMatch(/staff sign-in page/);
+    expect(staffPage.body.message).toBe('Incorrect email or password.');
+    expect((await login('employee@test.local', 'patient')).body.message).toBe('Incorrect email or password.');
+    const failures = (await actions()).filter((a) => a.action === 'login_failed');
+    expect(failures.at(-1)!.note).toMatch(/wrong login page/);
+  });
+
+  it('rejects emails with unusual characters', async () => {
+    for (const bad of ["a'b@example.com", 'a;b@example.com', 'a b@example.com', 'a"@example.com', 'a@ex%ample.com', 'x@y']) {
+      expect((await register({ email: bad })).status).toBe(422);
+    }
+    expect((await register({ email: 'ok.name+tag_1-2@sub.example.ph' })).status).toBe(201);
   });
 
   it('a wrong password is a generic 401 and is logged as a failure', async () => {
@@ -84,7 +93,7 @@ describe('login', () => {
 
   it('a deactivated account cannot sign in, and its existing session stops working', async () => {
     await ok(ctx, 'PATCH', `/api/admin/users/${ctx.ids.employee}`, { is_active: false }, 'admin');
-    expect((await login('employee@test.local', 'staff')).body.message).toBe('This account has been deactivated.');
+    expect((await login('employee@test.local', 'staff')).body.message).toBe('Incorrect email or password.');
     expect((await call(ctx, 'GET', '/api/patients')).status).toBe(401);
   });
 
@@ -154,5 +163,27 @@ describe('role guards', () => {
     expect((await call(ctx, 'POST', '/api/services', { name: 'X', duration_minutes: 10 }, 'admin')).status).toBe(403);
     expect((await call(ctx, 'POST', '/api/staff', { full_name: 'X', role: 'Y' }, 'admin')).status).toBe(403);
     expect((await call(ctx, 'GET', '/api/reports/utilisation', undefined, 'admin')).status).toBe(403);
+  });
+});
+
+describe('first-admin setup', () => {
+  const setup = (token: string, email = 'owner@clinic.ph') =>
+    call(ctx, 'POST', '/api/auth/setup', { token, full_name: 'Owner', email, password: 'LongEnough123' }, null);
+
+  it('is refused while an admin exists', async () => {
+    (env as { SETUP_TOKEN?: string }).SETUP_TOKEN = 'setup-token-0123456789';
+    expect((await call(ctx, 'GET', '/api/auth/setup', undefined, null)).body.needed).toBe(false);
+    expect((await setup('setup-token-0123456789')).body.message).toMatch(/already complete/);
+  });
+
+  it('creates the first admin with the right token, once', async () => {
+    (env as { SETUP_TOKEN?: string }).SETUP_TOKEN = 'setup-token-0123456789';
+    await ctx.db.execute(sql`DELETE FROM users WHERE role = 'admin'`);
+    expect((await call(ctx, 'GET', '/api/auth/setup', undefined, null)).body).toEqual({ needed: true, enabled: true });
+    expect((await setup('wrong-token')).status).toBe(401);
+    const res = await setup('setup-token-0123456789');
+    expect(res.status).toBe(201);
+    expect(res.body.user.role).toBe('admin');
+    expect((await setup('setup-token-0123456789', 'second@clinic.ph')).status).toBe(422);
   });
 });

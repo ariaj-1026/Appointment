@@ -8,6 +8,8 @@ export interface Staff {
   role: string;
   is_active: boolean;
   user_id?: number | null;
+  /** Services in this member's specialty. */
+  service_ids?: number[];
 }
 
 export interface Service {

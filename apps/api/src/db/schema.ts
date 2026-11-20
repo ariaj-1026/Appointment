@@ -21,6 +21,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   serial,
   text,
   time,
@@ -109,6 +110,24 @@ export const services = pgTable(
   (t) => [
     check('ck_services_duration', sql`${t.duration_minutes} > 0 and ${t.duration_minutes} <= 600`),
   ],
+);
+
+/**
+ * Which services each staff member performs (their specialty). A booking —
+ * by a patient or an employee — must pair a staff member with a service
+ * they offer. A staff member with no rows offers nothing.
+ */
+export const staff_services = pgTable(
+  'staff_services',
+  {
+    staff_id: integer('staff_id')
+      .notNull()
+      .references(() => staff.id, { onDelete: 'cascade' }),
+    service_id: integer('service_id')
+      .notNull()
+      .references(() => services.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.staff_id, t.service_id] }), index('ix_staff_services_service').on(t.service_id)],
 );
 
 export const patients = pgTable(

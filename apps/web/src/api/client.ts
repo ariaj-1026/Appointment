@@ -98,9 +98,9 @@ export const api = {
   health: () => get<{ ok: boolean; db: string }>('/api/health'),
 
   // ---- Auth ----
-  me: () => request<Me>('/api/auth/me', { quiet401: true }),
-  login: (email: string, password: string, portal: 'patient' | 'staff') =>
-    request<Me>('/api/auth/login', { method: 'POST', body: { email, password, portal }, quiet401: true }),
+  me: () => request<Me | null>('/api/auth/session', { quiet401: true }),
+  login: (email: string, password: string, portal: 'patient' | 'staff', remember = true) =>
+    request<Me>('/api/auth/login', { method: 'POST', body: { email, password, portal, remember }, quiet401: true }),
   register: (body: { email: string; password: string; first_name: string; last_name: string; phone: string; date_of_birth?: string | null }) =>
     post<Me>('/api/auth/register', body),
   logout: () => post<{ ok: boolean }>('/api/auth/logout'),
@@ -108,6 +108,8 @@ export const api = {
   resetPassword: (token: string, password: string) => post<{ ok: boolean }>('/api/auth/reset-password', { token, password }),
   changePassword: (current_password: string | undefined, new_password: string) =>
     post<{ ok: boolean }>('/api/auth/change-password', { current_password, new_password }),
+  setupStatus: () => get<{ needed: boolean; enabled: boolean }>('/api/auth/setup'),
+  setup: (body: { token: string; full_name: string; email: string; password: string }) => post<Me>('/api/auth/setup', body),
   googleEnabled: () => get<{ enabled: boolean }>('/api/auth/google/enabled'),
 
   // ---- Appointments (employee) ----
@@ -139,6 +141,8 @@ export const api = {
   listStaff: (params?: Params) => get<Staff[]>('/api/staff', params),
   createStaff: (body: Partial<Staff>) => post<Staff>('/api/staff', body),
   updateStaff: (id: number, body: Partial<Staff>) => patch<Staff>(`/api/staff/${id}`, body),
+  setStaffServices: (id: number, serviceIds: number[]) =>
+    put<{ staff_id: number; service_ids: number[] }>(`/api/staff/${id}/services`, serviceIds),
   getBusinessHours: (id: number) => get<BusinessHour[]>(`/api/staff/${id}/business-hours`),
   putBusinessHours: (id: number, body: BusinessHour[]) => put<BusinessHour[]>(`/api/staff/${id}/business-hours`, body),
   listServices: (params?: Params) => get<Service[]>('/api/services', params),
@@ -153,7 +157,8 @@ export const api = {
   // ---- Patient portal ----
   portal: {
     services: () => get<Pick<Service, 'id' | 'name' | 'duration_minutes' | 'description'>[]>('/api/portal/services'),
-    staff: () => get<Pick<Staff, 'id' | 'full_name' | 'role'>[]>('/api/portal/staff'),
+    staff: (serviceId?: number) =>
+      get<Pick<Staff, 'id' | 'full_name' | 'role'>[]>('/api/portal/staff', { service_id: serviceId }),
     availability: (params: { service_id: number; staff_id: number; date: string; exclude_appointment_id?: number }) =>
       get<{ date: string; slots: Slot[] }>('/api/portal/availability', params),
     appointments: () => get<PortalAppointment[]>('/api/portal/appointments'),

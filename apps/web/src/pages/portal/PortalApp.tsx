@@ -18,12 +18,13 @@ type PublicStaff = Pick<Staff, 'id' | 'full_name' | 'role'>;
 export default function PortalApp() {
   const { unread, refresh } = useUnread(true);
   const nav = [
-    { to: '/portal', label: 'My appointments', end: true },
-    { to: '/portal/book', label: 'Book' },
-    { to: '/portal/profile', label: 'Profile' },
+    // Longest label sits in the middle so the dock stays visually balanced.
+    { to: '/portal/book', label: 'Book', icon: 'plus' as const },
+    { to: '/portal', label: 'My appointments', end: true, icon: 'calendar' as const },
+    { to: '/portal/profile', label: 'Profile', icon: 'user' as const },
   ];
   return (
-    <Shell nav={nav} inboxPath="/portal/inbox" accountPath="/portal/account" unread={unread}>
+    <Shell nav={nav} inboxPath="/portal/inbox" accountPath="/portal/account" unread={unread} onRead={refresh}>
       <Routes>
         <Route index element={<MyAppointments />} />
         <Route path="book" element={<BookPage />} />
@@ -315,13 +316,15 @@ function BookPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    Promise.all([api.portal.services(), api.portal.staff()])
-      .then(([sv, st]) => {
-        setServices(sv);
-        setStaff(st);
-      })
-      .catch(setError);
+    api.portal.services().then(setServices).catch(setError);
   }, []);
+
+  // Only doctors whose specialty covers the chosen service.
+  useEffect(() => {
+    setStaff([]);
+    if (!serviceId) return;
+    api.portal.staff(serviceId).then(setStaff).catch(setError);
+  }, [serviceId]);
 
   const service = services.find((s) => s.id === serviceId);
   const member = staff.find((s) => s.id === staffId);
@@ -380,6 +383,7 @@ function BookPage() {
                 aria-pressed={s.id === serviceId}
                 onClick={() => {
                   setServiceId(s.id);
+                  setStaffId(null);
                   setSlot(null);
                 }}
               >
@@ -395,6 +399,10 @@ function BookPage() {
         {serviceId && (
           <section className="card card-pad stack">
             <h3 style={{ margin: 0 }}>2. Who would you like to see?</h3>
+            <p className="hint" style={{ margin: 0 }}>
+              Showing doctors who provide {service?.name ?? 'this service'}.
+            </p>
+            {staff.length === 0 && <div className="alert alert-info">No doctor currently offers this service. Please choose another.</div>}
             <div className="choice-list" role="group" aria-label="Doctor or staff">
               {staff.map((s) => (
                 <button
@@ -457,12 +465,13 @@ function ReschedulePage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    Promise.all([api.portal.appointments(), api.portal.staff()])
-      .then(([rows, st]) => {
+    api.portal
+      .appointments()
+      .then(async (rows) => {
         const a = rows.find((r) => r.id === Number(id)) ?? null;
         setAppt(a);
-        setStaff(st);
         setStaffId(a?.staff.id ?? null);
+        if (a) setStaff(await api.portal.staff(a.service.id));
       })
       .catch(setError);
   }, [id]);

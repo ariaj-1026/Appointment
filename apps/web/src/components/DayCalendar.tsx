@@ -16,7 +16,7 @@ const DEFAULT_OPEN = 8 * 60
 const DEFAULT_CLOSE = 18 * 60
 
 /**
- * One day, one column per staff member, half-hour rows.
+ * One day, one row per staff member, half-hour columns (time runs left to right).
  *
  * Appointments are placed in the row their start time falls in. A cell outside
  * the staff member's business hours is hatched and not actionable, so the grid
@@ -29,7 +29,7 @@ const DEFAULT_CLOSE = 18 * 60
  *
  * Keyboard model: the grid is one tab stop, not forty. A roving tabindex keeps
  * exactly one cell focusable; arrows move between cells, Home/End jump along a
- * row, PageUp/PageDown and Ctrl+Home/End along a column, and Enter or Space
+ * staff row, PageUp/PageDown jump two hours, Ctrl+Home/End to the corners, and Enter or Space
  * either opens the appointment in the cell or books the empty slot. Tabbing
  * past the grid therefore takes one press, which is why individual cells are
  * not each focusable.
@@ -170,28 +170,29 @@ export default function DayCalendar({
     )
   }
 
+  // Layout: one ROW per staff member, one COLUMN per half-hour slot.
+  // `focus.row` is still the slot index and `focus.col` the staff index, so
+  // Left/Right move through time and Up/Down move between staff.
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     const { row, col } = focus
     switch (e.key) {
       case 'ArrowRight':
-        move(row, col + 1)
-        break
-      case 'ArrowLeft':
-        move(row, col - 1)
-        break
-      case 'ArrowDown':
         move(row + 1, col)
         break
-      case 'ArrowUp':
+      case 'ArrowLeft':
         move(row - 1, col)
         break
+      case 'ArrowDown':
+        move(row, col + 1)
+        break
+      case 'ArrowUp':
+        move(row, col - 1)
+        break
       case 'Home':
-        e.ctrlKey ? move(0, 0) : move(row, 0)
+        e.ctrlKey ? move(0, 0) : move(0, col)
         break
       case 'End':
-        e.ctrlKey
-          ? move(slots.length - 1, staff.length - 1)
-          : move(row, staff.length - 1)
+        e.ctrlKey ? move(slots.length - 1, staff.length - 1) : move(slots.length - 1, col)
         break
       case 'PageDown':
         move(row + 4, col)
@@ -210,50 +211,51 @@ export default function DayCalendar({
   }
 
   return (
-    <div
-      className="calendar"
-      role="grid"
-      aria-label={`Schedule for ${date}`}
-      aria-rowcount={slots.length + 1}
-      aria-colcount={staff.length + 1}
-      ref={gridRef}
-      onKeyDown={onKeyDown}
-      style={{ gridTemplateColumns: `70px repeat(${staff.length}, minmax(150px, 1fr))` }}
-    >
-      <div className="cal-row" role="row">
-        <div className="cal-head" role="columnheader" />
-        {staff.map((member) => (
-          <div className="cal-head" role="columnheader" key={member.id}>
-            {member.full_name}
-            <div className="role">{member.role}</div>
+    <div className="cal-scroll">
+      <div
+        className="calendar calendar-h"
+        role="grid"
+        aria-label={`Schedule for ${date}`}
+        aria-rowcount={staff.length + 1}
+        aria-colcount={slots.length + 1}
+        ref={gridRef}
+        onKeyDown={onKeyDown}
+        style={{ gridTemplateColumns: `200px repeat(${slots.length}, minmax(96px, 1fr))` }}
+      >
+        <div className="cal-row" role="row">
+          <div className="cal-head cal-corner" role="columnheader">
+            Staff
           </div>
+          {slots.map((m) => (
+            <div className={`cal-head cal-time-head${m % 60 === 0 ? ' hour' : ''}`} role="columnheader" key={m}>
+              {minutesToTime(m)}
+            </div>
+          ))}
+        </div>
+
+        {staff.map((member, colIndex) => (
+          <StaffRow
+            key={member.id}
+            colIndex={colIndex}
+            member={member}
+            slots={slots}
+            placed={placed}
+            isOpen={isOpen}
+            isPast={isPast}
+            focus={focus}
+            onFocusCell={(row: number, col: number) => setFocus({ row, col })}
+            onActivate={activate}
+          />
         ))}
       </div>
-
-      {slots.map((slotMinutes, rowIndex) => (
-        <SlotRow
-          key={slotMinutes}
-          rowIndex={rowIndex}
-          slotMinutes={slotMinutes}
-          staff={staff}
-          date={date}
-          placed={placed}
-          isOpen={isOpen}
-          isPast={isPast}
-          focus={focus}
-          onFocusCell={(row: number, col: number) => setFocus({ row, col })}
-          onActivate={activate}
-        />
-      ))}
     </div>
   )
 }
 
-interface SlotRowProps {
-  rowIndex: number
-  slotMinutes: number
-  staff: Staff[]
-  date: string
+interface StaffRowProps {
+  colIndex: number
+  member: Staff
+  slots: number[]
   placed: Map<string, Appointment[]>
   isOpen: (staffId: number, slotMinutes: number) => boolean
   isPast: (slotMinutes: number) => boolean
@@ -262,28 +264,27 @@ interface SlotRowProps {
   onActivate: (row: number, col: number) => void
 }
 
-function SlotRow({
-  rowIndex,
-  slotMinutes,
-  staff,
+function StaffRow({
+  colIndex,
+  member,
+  slots,
   placed,
   isOpen,
   isPast,
   focus,
   onFocusCell,
   onActivate,
-}: SlotRowProps) {
-  const onTheHour = slotMinutes % 60 === 0
-  const past = isPast(slotMinutes)
-
+}: StaffRowProps) {
   return (
     <div className="cal-row" role="row">
-      <div className="cal-time" role="rowheader">
-        {onTheHour ? minutesToTime(slotMinutes) : ''}
+      <div className="cal-staff" role="rowheader">
+        {member.full_name}
+        <div className="role">{member.role}</div>
       </div>
-      {staff.map((member, colIndex) => {
+      {slots.map((slotMinutes, rowIndex) => {
         const items = placed.get(`${member.id}:${slotMinutes}`) || []
         const open = isOpen(member.id, slotMinutes)
+        const past = isPast(slotMinutes)
         const isFocused = focus.row === rowIndex && focus.col === colIndex
         const time = minutesToTime(slotMinutes)
 
@@ -297,22 +298,20 @@ function SlotRow({
           className += ' closed'
           label = `${time}, ${member.full_name}: outside business hours`
         } else if (past) {
-          // Distinct from `closed`: the clinic was open, the time has simply
-          // gone. Saying so is what stops it reading as a broken cell.
           className += ' past'
           label = `${time}, ${member.full_name}: time has passed`
         } else {
           className += ' bookable'
           label = `${time}, ${member.full_name}: free — book`
         }
+        if (slotMinutes % 60 === 0) className += ' hour'
 
         return (
           <div
-            key={member.id}
+            key={slotMinutes}
             className={className}
             role="gridcell"
             data-cell={`${rowIndex}-${colIndex}`}
-            // Roving tabindex: exactly one cell is reachable by Tab.
             tabIndex={isFocused ? 0 : -1}
             aria-label={label}
             title={items.length === 0 && open && !past ? label : undefined}
@@ -323,8 +322,6 @@ function SlotRow({
               <button
                 key={appointment.id}
                 className={`appt s-${appointment.status}`}
-                // Reachable by mouse; the grid itself handles keyboard, so
-                // these are not separate tab stops.
                 tabIndex={-1}
                 onClick={(e) => {
                   e.stopPropagation()

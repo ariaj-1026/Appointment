@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { AuthProvider, RequireRole, homeFor, useAuth } from './auth/AuthProvider';
-import { ForgotPassword, PatientLogin, Register, ResetPassword, StaffLogin } from './pages/auth/AuthPages';
+import { ForgotPassword, PatientLogin, Register, ResetPassword, Setup, StaffLogin } from './pages/auth/AuthPages';
 import AdminApp from './pages/admin/AdminApp';
 import EmployeeApp from './pages/employee/EmployeeApp';
 import PortalApp from './pages/portal/PortalApp';
@@ -23,6 +23,7 @@ export function App() {
         <Route path="/staff/login" element={<StaffLogin />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/setup" element={<Setup />} />
         <Route path="/portal/*" element={<RequireRole roles={['patient']}><PortalApp /></RequireRole>} />
         <Route path="/app/*" element={<RequireRole roles={['employee']}><EmployeeApp /></RequireRole>} />
         <Route path="/admin/*" element={<RequireRole roles={['admin']}><AdminApp /></RequireRole>} />

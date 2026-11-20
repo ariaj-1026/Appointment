@@ -78,7 +78,7 @@ export function setupTestApp(): Ctx {
     ctx.sender.sent = [];
     ctx.sender.failFor.clear();
     await ctx.db.execute(sql`
-      TRUNCATE notifications, activity_log, appointments, business_hours, patients,
+      TRUNCATE notifications, activity_log, staff_services, appointments, business_hours, patients,
                services, staff, password_resets, clinic_settings, users
       RESTART IDENTITY CASCADE`);
     await ctx.db.execute(sql`INSERT INTO clinic_settings (id) VALUES (1)`);
@@ -137,12 +137,27 @@ export async function ok(ctx: Ctx, method: Method, url: string, payload?: unknow
   return res.body;
 }
 
+/**
+ * Test staff offer every test service unless a test says otherwise, so the
+ * specialty rule only bites in the tests about it.
+ */
+export async function linkAll(ctx: Ctx) {
+  await ctx.db.execute(sql`
+    INSERT INTO staff_services (staff_id, service_id)
+    SELECT st.id, sv.id FROM staff st CROSS JOIN services sv
+    ON CONFLICT DO NOTHING`);
+}
+
 export async function makeStaff(ctx: Ctx, name = 'Dr. Ilagan', extra: object = {}) {
-  return ok(ctx, 'POST', '/api/staff', { full_name: name, role: 'Physician', ...extra });
+  const row = await ok(ctx, 'POST', '/api/staff', { full_name: name, role: 'Physician', ...extra });
+  await linkAll(ctx);
+  return row;
 }
 
 export async function makeService(ctx: Ctx, name = 'Consultation', minutes = 30, extra: object = {}) {
-  return ok(ctx, 'POST', '/api/services', { name, duration_minutes: minutes, ...extra });
+  const row = await ok(ctx, 'POST', '/api/services', { name, duration_minutes: minutes, ...extra });
+  await linkAll(ctx);
+  return row;
 }
 
 export async function makePatient(ctx: Ctx, first = 'Ana', last = 'Cruz', phone = '0917-555-0101', extra: object = {}) {

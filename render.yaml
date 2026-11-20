@@ -23,6 +23,9 @@ services:
         generateValue: true
       - key: CRON_SECRET
         generateValue: true
+      # Copy this from the dashboard to create the first admin at /setup.
+      - key: SETUP_TOKEN
+        generateValue: true
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
