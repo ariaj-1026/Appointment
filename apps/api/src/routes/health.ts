@@ -1,10 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { HealthResponse } from '@clinic/shared';
-import { pingDb } from '../db/client.js';
+import { pingDb, type DB } from '../db/client.js';
 
-export const healthRoutes: FastifyPluginAsync = async (app) => {
+export const healthRoutes: FastifyPluginAsync<{ db: DB | null }> = async (app, { db }) => {
   app.get('/health', async (): Promise<HealthResponse> => {
-    const db = await pingDb();
-    return { ok: db !== 'down', db, time: new Date().toISOString() };
+    const status = await pingDb(db);
+    return { ok: status !== 'down', db: status, time: new Date().toISOString() };
   });
 };

@@ -60,7 +60,8 @@ A patient account cannot sign in on `/staff/login` and vice versa.
 ### Employee (= all of v1, plus approval and override)
 Everything in today's app is retained:
 - Schedule page — day/week calendar, create appointment, detail modal, history timeline.
-- Status lifecycle, reschedule with conflict + business-hours checks.
+- Status lifecycle (scheduled → confirmed → completed / cancelled / no-show),
+  reschedule with conflict + business-hours checks.
 - Search, Reports (daily summary, utilisation, cancellations, CSV export).
 - **Settings — staff, services, business hours (employees only; admins cannot edit these).**
 - Reminders — due list, dispatch, reminder log.
@@ -86,12 +87,15 @@ New for employees:
 ## Appointment lifecycle
 
 ```
-pending ──approve──▶ scheduled → confirmed → checked_in → completed
-   │                     │            │
-   └─decline─▶ declined  └──────┴──▶ cancelled / no_show
+pending ──approve──▶ scheduled ──▶ confirmed ──▶ completed
+   │                     │              │
+   ├──decline──▶ declined└──────┬───────┘
+   └──withdraw──▶ cancelled ◀───┴──▶ no_show
 ```
-`pending` and `declined` are new; the rest are v1 statuses. Pending requests block
-the slot so two patients cannot request the same time.
+`pending` and `declined` are new; the rest are v1 statuses (v1 has no check-in step;
+a walk-in can go scheduled → completed directly). Pending requests block the slot so
+two patients cannot request the same time. `completed` still holds its slot;
+`cancelled`, `no_show` and `declined` release it.
 
 ## Data model
 
@@ -101,31 +105,36 @@ New tables:
 - `password_resets` — token hash, user_id, expires_at, used_at.
 - `activity_log` — id, user_id, role, action, entity, entity_id, before (jsonb),
   after (jsonb), ip, user_agent, created_at. Supersedes v1 `audit_logs`.
-- `notifications` — id, recipient (user or "all employees"), type, appointment_id,
-  channel (`in_app|email`), status, read_at, sent_at. Supersedes v1 `reminder_logs`.
-- `clinic_settings` — single row: timezone, reminder offsets (24h, 2h), cancel cutoff (24h).
+- `notifications` — id, audience (`user` or shared `employees` inbox), user_id, type,
+  appointment_id, channel (`in_app|email`), recipient, status (`sent|failed|skipped`),
+  title, detail, read_at, created_at. Supersedes v1 `reminder_logs`.
+- `clinic_settings` — single row: timezone. (Reminder offsets and the 24h cancel
+  cutoff are constants in `packages/shared` for now.)
 
 Changed tables:
 - `patients.user_id` (nullable FK) — walk-in patients still exist without an account.
 - `staff.user_id` (nullable FK) — an employee login can map to a staff member.
 - `appointments`: + `created_by`, `booked_via` (`patient|employee`),
-  `decision_by`, `decision_reason`, `deleted_at`; new statuses `pending`, `declined`.
-- All timestamps `timestamptz`; display converts to the clinic time zone.
+  `decision_by`, `decision_reason`; new statuses `pending`, `declined`.
+  No soft delete: admin deletes are real deletes, with a full snapshot kept in `activity_log`.
+- All timestamps `timestamptz`; the API returns them as ISO strings in the clinic
+  zone (`2026-11-23T09:00:00+08:00`) and accepts offset-less input as clinic time.
 - Overlap protection: Postgres **exclusion constraint** on
-  `(staff_id, tstzrange(starts_at, ends_at))` for `pending|scheduled|confirmed|checked_in`,
+  `(staff_id, tstzrange(starts_at, ends_at, '[)'))` for `pending|scheduled|confirmed|completed`,
   so the database itself refuses double-booking.
 
 ## Phases
 
-**Phase 0 — Scaffold & deploy pipeline**
+**Phase 0 — Scaffold & deploy pipeline** ✅
 Monorepo, TS configs, ESLint/Prettier, Fastify app with `/health`, Vite app, Neon project
 (dev + prod branches), Render service, Vercel project with `/api` rewrite, Brevo key,
 `.env.example` files. Move v1 into `/legacy`.
 
-**Phase 1 — Database & core API port**
+**Phase 1 — Database & core API port** ✅
 Drizzle schema, migrations, demo seed (staff, services, patients, appointments, one admin,
 one employee, one patient login). Port v1 endpoints to Fastify with the same behaviour;
-port v1 tests to Vitest.
+port v1 tests to Vitest (run against PGlite, an in-process Postgres, with the real migrations).
+Endpoints are **unauthenticated** until Phase 2 — don't point a public deploy at real data yet.
 
 **Phase 2 — Auth & roles**
 Patient register/login (+ Google), staff login page, logout, forgot/reset password,

@@ -31,6 +31,40 @@ npm run dev:web   # http://localhost:5173 (proxies /api to the API)
 
 If port 8000 is taken, set `PORT` in `apps/api/.env` and `VITE_API_TARGET` in `apps/web/.env` to match.
 
+## Database
+
+Point `DATABASE_URL` in `apps/api/.env` at a Neon dev branch, or run Postgres locally:
+
+```bash
+docker compose up -d     # Postgres 17 on :5433 (URL is in apps/api/.env.example)
+npm run db:migrate -w @clinic/api
+npm run db:seed -w @clinic/api              # demo data + logins
+npm run db:seed -w @clinic/api -- --reset   # wipe everything first (asks to confirm)
+```
+
+Demo logins (password = `SEED_PASSWORD`, default `ClinicDemo2026!`):
+`admin@clinic.local`, `employee@clinic.local`, `ana.cruz@example.com` (patient).
+Login itself arrives in Phase 2.
+
+Schema changes: edit `apps/api/src/db/schema.ts`, then `npm run db:generate -w @clinic/api`
+and commit the new file in `apps/api/drizzle/`. Render applies migrations on every start.
+
+## Tests
+
+```bash
+npm test -w @clinic/api   # Vitest + PGlite (in-process Postgres); no database needed
+```
+
+## API (Phase 1, unauthenticated)
+
+Same endpoints and JSON shapes as v1, under `/api`: `patients`, `staff` (+ `/{id}/business-hours`),
+`services`, `appointments` (list, `/search`, `/{id}`, `/{id}/status`, `/{id}/reschedule`,
+`/{id}/history`), `reports` (`/daily-summary`, `/utilisation`, `/cancellations`),
+`reminders` (`/due`, `/dispatch`, `/log`), `settings`.
+
+Times are returned in the clinic zone with offset (`2026-11-23T09:00:00+08:00`); input
+without an offset is read as clinic time. Errors are `{ code, message, ...detail }`.
+
 ## Deploying
 
 1. **Neon** — create a project (region Singapore), copy the *pooled* connection string.

@@ -1,0 +1,16 @@
+# Optional local Postgres, as an alternative to a Neon dev branch.
+#   docker compose up -d
+#   DATABASE_URL=postgresql://clinic:clinic@localhost:5433/clinic
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: clinic
+      POSTGRES_PASSWORD: clinic
+      POSTGRES_DB: clinic
+    ports:
+      - '5433:5432'
+    volumes:
+      - clinic-pg:/var/lib/postgresql/data
+volumes:
+  clinic-pg:

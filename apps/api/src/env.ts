@@ -15,6 +15,9 @@ const EnvSchema = z.object({
   BREVO_SENDER_NAME: z.string().default('Clinic Appointments'),
   CRON_SECRET: z.string().optional(),
   DEFAULT_CLINIC_TIMEZONE: z.string().default(DEFAULT_TIMEZONE),
+  /** How far into the past a new booking may start (a slot just begun). */
+  BOOKING_GRACE_MINUTES: z.coerce.number().int().min(0).default(15),
+  MAX_BOOKING_DAYS_AHEAD: z.coerce.number().int().positive().default(365),
 });
 
 export const env = EnvSchema.parse(process.env);
