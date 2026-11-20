@@ -17,9 +17,10 @@ import {
 } from '../domain/scheduling.js';
 import { serializeAppointmentDetail } from '../domain/serialize.js';
 import { assertReschedulable, assertTransition } from '../domain/status.js';
-import { ValidationError } from '../lib/errors.js';
+import { InvalidStatusTransitionError, ValidationError } from '../lib/errors.js';
+import { notifyPatient } from '../domain/notify.js';
 import { getClinicZone } from '../lib/settings.js';
-import { clinicDayBounds, clinicRangeBounds, now, parseClinicDateTime } from '../lib/time.js';
+import { clinicDayBounds, now, parseClinicDateTime } from '../lib/time.js';
 import { id, idParams, isoDate, parse } from '../lib/validate.js';
 import { patientMatch } from './patients.js';
 
@@ -168,18 +169,30 @@ export const appointmentRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { d
       });
       return row!.id;
     });
+    await notifyPatient(db, createdId, { type: 'booked_by_clinic' });
     return reply.status(201).send(await detail(createdId, zone));
   });
 
-  /** Move through the lifecycle, rejecting illegal moves. */
+  /**
+   * Move through the lifecycle, rejecting illegal moves. Pending patient
+   * requests go through /approve and /decline instead. Cancelling a portal
+   * patient's appointment needs a reason, which is emailed to them.
+   */
   app.patch('/:id/status', async (req) => {
     const { id: appointmentId } = parse(idParams, req.params);
     const body = parse(AppointmentStatusUpdate, req.body);
     const zone = await getClinicZone(db);
 
-    await db.transaction(async (tx) => {
+    const previous = await db.transaction(async (tx) => {
       const current = await getAppointment(tx, appointmentId);
+      if (current.status === 'pending' && body.status !== 'pending') {
+        throw new InvalidStatusTransitionError(
+          'This is a patient request awaiting a decision. Approve or decline it instead.',
+          { current_status: 'pending', target_status: body.status },
+        );
+      }
       assertTransition(current.status, body.status);
+      if (body.status === 'cancelled') requireReasonForPortalPatient(current, body.note);
       await tx
         .update(appointments)
         .set({ status: body.status, updated_at: now() })
@@ -192,18 +205,78 @@ export const appointmentRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { d
         after: { status: body.status },
         note: body.note ?? null,
       });
+      return current;
     });
+    if (body.status === 'cancelled' && previous.starts_at > now()) {
+      await notifyPatient(db, appointmentId, { type: 'cancelled_by_clinic', reason: body.note });
+    }
     return detail(appointmentId, zone);
   });
 
-  /** Move an appointment, re-running every booking rule at the new slot. */
+  /** Accept a patient's pending request. */
+  app.post('/:id/approve', async (req) => {
+    const { id: appointmentId } = parse(idParams, req.params);
+    const body = parse(DecisionBody, req.body);
+    const zone = await getClinicZone(db);
+    await db.transaction(async (tx) => {
+      const current = await getAppointment(tx, appointmentId);
+      assertTransition(current.status, 'scheduled');
+      if (current.starts_at < now()) {
+        throw new ValidationError('This request is for a time that has already passed. Decline it instead.');
+      }
+      await tx
+        .update(appointments)
+        .set({ status: 'scheduled', decision_by: req.actor.user_id, decision_reason: body.reason ?? null, updated_at: now() })
+        .where(eq(appointments.id, appointmentId));
+      await logActivity(tx, req.actor, {
+        action: APPOINTMENT_ACTIONS.statusChanged,
+        entity: 'appointment',
+        entity_id: appointmentId,
+        before: { status: 'pending' },
+        after: { status: 'scheduled' },
+        note: body.reason ? `Approved: ${body.reason}` : 'Approved',
+      });
+    });
+    await notifyPatient(db, appointmentId, { type: 'approved' });
+    return detail(appointmentId, zone);
+  });
+
+  /** Refuse a patient's pending request; the reason is emailed to them. */
+  app.post('/:id/decline', async (req) => {
+    const { id: appointmentId } = parse(idParams, req.params);
+    const body = parse(z.object({ reason: z.string().trim().min(1, 'A reason is required') }), req.body);
+    const zone = await getClinicZone(db);
+    await db.transaction(async (tx) => {
+      const current = await getAppointment(tx, appointmentId);
+      assertTransition(current.status, 'declined');
+      await tx
+        .update(appointments)
+        .set({ status: 'declined', decision_by: req.actor.user_id, decision_reason: body.reason, updated_at: now() })
+        .where(eq(appointments.id, appointmentId));
+      await logActivity(tx, req.actor, {
+        action: APPOINTMENT_ACTIONS.statusChanged,
+        entity: 'appointment',
+        entity_id: appointmentId,
+        before: { status: 'pending' },
+        after: { status: 'declined' },
+        note: body.reason,
+      });
+    });
+    await notifyPatient(db, appointmentId, { type: 'declined', reason: body.reason });
+    return detail(appointmentId, zone);
+  });
+
+  /**
+   * Move an appointment, re-running every booking rule at the new slot.
+   * Overriding a portal patient's booking needs a reason; they are emailed.
+   */
   app.patch('/:id/reschedule', async (req) => {
     const { id: appointmentId } = parse(idParams, req.params);
     const body = parse(AppointmentReschedule, req.body);
     const zone = await getClinicZone(db);
     const startsAt = toInstant(body.starts_at, zone);
 
-    await db.transaction(async (tx) => {
+    const previous = await db.transaction(async (tx) => {
       const current = await getAppointment(tx, appointmentId);
       assertReschedulable(current.status);
 
@@ -222,6 +295,8 @@ export const appointmentRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { d
         { staff_id: staffId, starts_at: startsAt, ends_at: endsAt, exclude_appointment_id: current.id },
         zone,
       );
+      const moved = staffId !== current.staff_id || startsAt.getTime() !== current.starts_at.getTime();
+      if (moved) requireReasonForPortalPatient(current, body.note);
 
       await tx
         .update(appointments)
@@ -241,7 +316,30 @@ export const appointmentRoutes: FastifyPluginAsync<{ db: DB }> = async (app, { d
         after: { starts_at: iso(startsAt), staff_id: staffId, service_id: service.id },
         note: body.note ?? null,
       });
+      return { ...current, moved };
     });
+    if (previous.moved) {
+      await notifyPatient(db, appointmentId, {
+        type: 'changed_by_clinic',
+        previous: { starts_at: previous.starts_at, staff_name: previous.staff.full_name },
+        reason: body.note,
+      });
+    }
     return detail(appointmentId, zone);
   });
 };
+
+const DecisionBody = z.object({ reason: z.string().trim().nullable().optional() });
+
+/** Employees must explain changes they force on a patient who booked online. */
+function requireReasonForPortalPatient(
+  appt: { patient: { user_id: number | null } },
+  note: string | null | undefined,
+) {
+  if (appt.patient.user_id && !note?.trim()) {
+    throw new ValidationError(
+      'This patient has an online account and will be notified. Please give a reason.',
+      { field: 'note' },
+    );
+  }
+}

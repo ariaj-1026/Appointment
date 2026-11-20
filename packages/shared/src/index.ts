@@ -54,8 +54,31 @@ export const WEEKDAY_NAMES = [
 ] as const;
 
 export const DEFAULT_TIMEZONE = 'Asia/Manila';
-export const PATIENT_CANCEL_CUTOFF_HOURS = 24;
 export const REMINDER_OFFSETS_HOURS = [24, 2] as const;
+
+// ---- Patient portal rules ----
+/** Patients may cancel/reschedule a confirmed visit up to this long before it. */
+export const PATIENT_CANCEL_CUTOFF_HOURS = 24;
+/** Earliest a patient can request: now + this. */
+export const PATIENT_MIN_LEAD_MINUTES = 60;
+/** Furthest ahead a patient can request. */
+export const PATIENT_MAX_DAYS_AHEAD = 90;
+/** Open (pending) requests a patient may have at once. */
+export const PATIENT_MAX_PENDING_REQUESTS = 3;
+/** Slot grid offered to patients. */
+export const SLOT_STEP_MINUTES = 15;
+/**
+ * Hours offered to patients for a staff member with no business hours
+ * configured (employees can still book them at any time): Mon–Fri 09–17.
+ */
+export const DEFAULT_PATIENT_HOURS = { weekdays: [0, 1, 2, 3, 4], opens_at: '09:00', closes_at: '17:00' };
+
+export const NOTIFICATION_TYPES = {
+  new_patient: 'New patient registered',
+  booking_request: 'New booking request',
+  reschedule_request: 'Reschedule request',
+  patient_cancelled: 'Patient cancelled',
+} as const;
 
 export interface HealthResponse {
   ok: boolean;

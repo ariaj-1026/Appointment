@@ -14,7 +14,9 @@ import type { Conn } from '../db/client.js';
 import { appointments, notifications } from '../db/schema.js';
 import { env } from '../env.js';
 import { sendEmail } from '../lib/email.js';
+import { templates } from '../lib/templates.js';
 import { addMinutes, clinicParts, now } from '../lib/time.js';
+import { visitInfo } from './notify.js';
 import type { AppointmentWithRelations } from './serialize.js';
 
 export const REMINDER_TYPES = ['reminder_24h', 'reminder_2h'] as const;
@@ -28,18 +30,17 @@ export interface ReminderSender {
   channel: 'email';
   name: string;
   /** Deliver; return a short detail string. Throw to signal failure. */
-  send(appt: AppointmentWithRelations, message: string): Promise<string>;
+  send(appt: AppointmentWithRelations, message: string, ctx: { type: ReminderType; zone: string }): Promise<string>;
 }
 
 export const emailSender: ReminderSender = {
   channel: 'email',
   name: 'email',
-  async send(appt, message) {
-    const to = appt.patient.email!;
+  async send(appt, _message, { type, zone }) {
+    const email = templates.reminder(visitInfo(appt, zone), type === 'reminder_2h' ? '2h' : '24h');
     const result = await sendEmail({
-      to: { email: to, name: `${appt.patient.first_name} ${appt.patient.last_name}` },
-      subject: 'Appointment reminder',
-      html: `<p>${escapeHtml(message)}</p>`,
+      to: { email: appt.patient.email!, name: `${appt.patient.first_name} ${appt.patient.last_name}` },
+      ...email,
     });
     if (result.sent) return `sent via Brevo${result.id ? ` (${result.id})` : ''}`;
     if (env.NODE_ENV === 'production') throw new Error('Brevo is not configured');
@@ -67,7 +68,11 @@ export function buildMessage(appt: AppointmentWithRelations, zone: string): stri
   );
 }
 
-export async function findDue(conn: Conn, withinHours: number, type: ReminderType) {
+/**
+ * Due = starts in (now + afterHours, now + withinHours] and not yet handled
+ * for this reminder type.
+ */
+export async function findDue(conn: Conn, withinHours: number, type: ReminderType, afterHours = 0) {
   const current = now();
   const handled = conn
     .select({ id: notifications.appointment_id })
@@ -82,7 +87,7 @@ export async function findDue(conn: Conn, withinHours: number, type: ReminderTyp
   return conn.query.appointments.findMany({
     where: and(
       inArray(appointments.status, [...REMINDABLE]),
-      gte(appointments.starts_at, current),
+      gte(appointments.starts_at, addMinutes(current, afterHours * 60)),
       lte(appointments.starts_at, addMinutes(current, withinHours * 60)),
       notInArray(appointments.id, handled),
     ),
@@ -93,9 +98,9 @@ export async function findDue(conn: Conn, withinHours: number, type: ReminderTyp
 
 export async function dispatch(
   conn: Conn,
-  opts: { withinHours: number; type: ReminderType; sender: ReminderSender; zone: string },
+  opts: { withinHours: number; afterHours?: number; type: ReminderType; sender: ReminderSender; zone: string },
 ) {
-  const due = await findDue(conn, opts.withinHours, opts.type);
+  const due = await findDue(conn, opts.withinHours, opts.type, opts.afterHours);
   let sent = 0;
   let failed = 0;
   let skipped = 0;
@@ -113,7 +118,7 @@ export async function dispatch(
       skipped += 1;
     } else {
       try {
-        detail = await opts.sender.send(appt, message);
+        detail = await opts.sender.send(appt, message, { type: opts.type, zone: opts.zone });
         status = 'sent';
         sent += 1;
       } catch (err) {
@@ -152,8 +157,4 @@ export async function dispatch(
     skipped,
     results,
   };
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
