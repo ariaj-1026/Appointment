@@ -1,0 +1,55 @@
+# Render Blueprint — Render dashboard → New → Blueprint → pick this repo.
+# Secrets marked sync: false are entered in the dashboard (see apps/api/.env.example).
+services:
+  - type: web
+    name: clinic-api
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm ci && npm run build -w @clinic/shared && npm run build -w @clinic/api
+    # Migrations run before every start (single instance, so no race).
+    startCommand: npm run db:migrate:prod -w @clinic/api && npm run start -w @clinic/api
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: '22'
+      - key: WEB_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      # Copy this from the dashboard to create the first admin at /setup.
+      - key: SETUP_TOKEN
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
+      - key: BREVO_SENDER_NAME
+        value: Clinic Appointments
+      - key: DEFAULT_CLINIC_TIMEZONE
+        value: Asia/Manila
+# Reminders: something must POST /api/cron/reminders every 15–30 min with
+# "authorization: Bearer $CRON_SECRET". Free option: .github/workflows/reminders.yml.
+# Paid option: uncomment this Render cron job.
+#  - type: cron
+#    name: clinic-reminders
+#    runtime: node
+#    region: singapore
+#    schedule: '*/15 * * * *'
+#    buildCommand: 'true'
+#    startCommand: 'curl -fsS -X POST "$APP_URL/api/cron/reminders" -H "authorization: Bearer $CRON_SECRET"'
+#    envVars:
+#      - key: APP_URL
+#        sync: false
+#      - key: CRON_SECRET
+#        sync: false

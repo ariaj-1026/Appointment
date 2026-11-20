@@ -1,0 +1,1186 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: 20px;
+}
+h2 {
+  font-size: 17px;
+}
+h3 {
+  font-size: 15px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary-darker);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------------------------------------------------------------- Layout */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: 0 var(--space-5);
+  height: 60px;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: var(--color-text);
+  font-size: 15px;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.tab {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tab:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.tab[aria-current='page'] {
+  background: var(--color-accent);
+  color: var(--color-text);
+}
+
+.page {
+  flex: 1;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-5);
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.page-head h1 {
+  margin-bottom: 2px;
+}
+
+.page-head .sub {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.spacer {
+  margin-left: auto;
+}
+
+/* --------------------------------------------------------------- Buttons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Dark text on yellow: never white, see tokens.css */
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
+.btn-secondary {
+  background: var(--color-bg);
+  border-color: var(--color-border-input);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-surface);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.btn-danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-color: #f3c7c3;
+}
+
+.btn-sm {
+  min-height: 30px;
+  padding: var(--space-1) var(--space-3);
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------------- Inputs */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+input,
+select,
+textarea {
+  padding: var(--space-2) var(--space-3);
+  min-height: 36px;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  width: 100%;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-primary-dark);
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 0;
+}
+
+textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+/* The native select arrow is drawn by the browser hard against the right
+ * border and ignores padding-right entirely. Replacing it with our own
+ * chevron puts it on the same 12px inset as the text on the left, and the
+ * wider padding-right keeps long option labels from running underneath it. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%236B6B6B' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
+}
+
+select:disabled {
+  opacity: 0.6;
+}
+
+/* Chrome draws the date/time picker button tight to the edge too. */
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator {
+  margin-right: 2px;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator:hover,
+input[type='time']::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-4);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* A hint that explains why the form will not submit. Uses the no-show red
+   (--status-no_show, 4.67:1 on white) rather than the muted grey, since this
+   one has to be noticed; the wording carries the meaning, not the colour. */
+.hint-warn {
+  color: var(--status-no_show);
+  font-weight: 500;
+}
+
+/* ----------------------------------------------------------------- Cards */
+
+.card {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-pad {
+  padding: var(--space-5);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* --------------------------------------------------------------- Toolbar */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-5);
+}
+
+.toolbar .field {
+  min-width: 150px;
+}
+
+/* ----------------------------------------------------------------- Table */
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+tbody tr:hover {
+  background: var(--color-surface);
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.cell-strong {
+  font-weight: 600;
+}
+
+.cell-muted {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.row-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+/* ---------------------------------------------------------------- Badges */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-scheduled {
+  background: var(--status-scheduled-bg);
+  color: #8a6d03;
+}
+.badge-confirmed {
+  background: var(--status-confirmed-bg);
+  color: var(--status-confirmed);
+}
+.badge-completed {
+  background: var(--status-completed-bg);
+  color: var(--status-completed);
+}
+.badge-cancelled {
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled);
+}
+.badge-no_show {
+  background: var(--status-no_show-bg);
+  color: var(--status-no_show);
+}
+
+/* -------------------------------------------------------------- Calendar */
+
+.calendar {
+  display: grid;
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  /* `clip`, not `hidden`: `hidden` would make the calendar a scroll container,
+   * which becomes the sticky containing block and pushes .cal-head 60px down
+   * from the grid's own top instead of pinning it below the page topbar. */
+  overflow: clip;
+}
+
+/* The row exists for assistive tech (role="row"); display:contents keeps its
+ * cells as direct participants in the calendar's grid layout. */
+.cal-row {
+  display: contents;
+}
+
+.cal-head {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  font-weight: 600;
+  font-size: 13px;
+  position: sticky;
+  top: 60px;
+  z-index: 5;
+}
+
+.cal-head .role {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.cal-time {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cal-cell {
+  background: var(--color-bg);
+  min-height: 46px;
+  padding: 3px;
+  position: relative;
+}
+
+.cal-cell.closed {
+  background: repeating-linear-gradient(
+    45deg,
+    #fafafa,
+    #fafafa 5px,
+    #f3f3f3 5px,
+    #f3f3f3 10px
+  );
+}
+
+/* Elapsed, not closed. A flat tint rather than the hatch, so the two reasons a
+   cell cannot be booked stay tellable apart at a glance. */
+.cal-cell.past {
+  background: #f7f7f7;
+  cursor: not-allowed;
+}
+
+.cal-cell.bookable {
+  cursor: pointer;
+}
+
+.cal-cell.bookable:hover {
+  background: var(--color-accent);
+}
+
+.cal-cell.bookable:hover::after {
+  content: '+';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-primary-darker);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* The roving-tabindex cell. Inset so the ring is not clipped by the
+ * neighbouring cell, and raised so it draws over the 1px grid lines. */
+.cal-cell:focus-visible {
+  outline: 2px solid var(--color-primary-darker);
+  outline-offset: -2px;
+  z-index: 2;
+}
+
+.cal-cell.bookable:focus-visible {
+  background: var(--color-accent);
+}
+
+.appt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 8px;
+  border: 0;
+  border-left: 3px solid var(--status-scheduled);
+  border-radius: 4px;
+  background: var(--status-scheduled-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.appt:hover {
+  filter: brightness(0.97);
+}
+
+.appt-name {
+  font-weight: 600;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.appt-meta {
+  color: var(--color-text-muted);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.appt.s-confirmed {
+  border-left-color: var(--status-confirmed);
+  background: var(--status-confirmed-bg);
+}
+.appt.s-completed {
+  border-left-color: var(--status-completed);
+  background: var(--status-completed-bg);
+}
+.appt.s-cancelled {
+  border-left-color: var(--status-cancelled);
+  background: var(--status-cancelled-bg);
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+.appt.s-no_show {
+  border-left-color: var(--status-no_show);
+  background: var(--status-no_show-bg);
+}
+
+/* ------------------------------------------------------------- Week view */
+
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.view-toggle .tab[aria-pressed='true'] {
+  background: var(--color-primary);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: clip;
+}
+
+.week-day {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  min-height: 190px;
+}
+
+.week-day.closed {
+  background: repeating-linear-gradient(
+    45deg,
+    #fafafa,
+    #fafafa 5px,
+    #f3f3f3 5px,
+    #f3f3f3 10px
+  );
+}
+
+.week-day.today .week-day-head {
+  background: var(--color-accent);
+}
+
+.week-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.week-day-open {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+}
+
+.week-day-open:hover {
+  background: var(--color-accent-strong);
+}
+
+.week-dow {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.week-dom {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.week-day-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px;
+  flex: 1;
+}
+
+.week-add {
+  margin: auto 0 0;
+  padding: var(--space-2);
+  border: 1px dashed var(--color-border-input);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.week-add:hover {
+  background: var(--color-accent);
+  color: var(--color-text);
+}
+
+@media (max-width: 900px) {
+  .week {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .week {
+    grid-template-columns: 1fr;
+  }
+  .week-day {
+    min-height: 0;
+  }
+}
+
+/* ----------------------------------------------------------------- Modal */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 26, 0.45);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  z-index: 100;
+}
+
+.modal {
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  padding: var(--space-5) var(--space-5) var(--space-3);
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+  position: sticky;
+  bottom: 0;
+  background: var(--color-bg);
+}
+
+.close-x {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.close-x:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* -------------------------------------------------------------- Messages */
+
+.alert {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.alert-error {
+  background: var(--color-danger-bg);
+  color: #8e1f1a;
+  border: 1px solid #f3c7c3;
+}
+
+.alert-info {
+  background: var(--color-accent);
+  color: #6b5503;
+  border: 1px solid var(--color-accent-strong);
+}
+
+.alert strong {
+  display: block;
+}
+
+.alert ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+}
+
+.empty {
+  padding: var(--space-7) var(--space-5);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.empty-mark {
+  font-size: 30px;
+  margin-bottom: var(--space-3);
+}
+
+.empty h3 {
+  color: var(--color-text);
+  margin-bottom: var(--space-1);
+}
+
+.loading {
+  padding: var(--space-7);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+/* ----------------------------------------------------------------- Stats */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.stat {
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+/* ----------------------------------------------------------- Bar charts */
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 190px) 1fr auto;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.bar-label {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-label .bar-sub {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* Thin mark on a recessive track, rounded at the data end only. */
+.bar-track {
+  position: relative;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--mark-track);
+  overflow: hidden;
+}
+
+.bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--mark-primary);
+  border-radius: 3px 4px 4px 3px;
+  min-width: 2px;
+}
+
+.bar-fill.over {
+  /* Booked beyond configured capacity: still readable, flagged in the label. */
+  background: repeating-linear-gradient(
+    135deg,
+    var(--mark-primary),
+    var(--mark-primary) 5px,
+    #c08f05 5px,
+    #c08f05 10px
+  );
+}
+
+.bar-fill.unknown {
+  background: var(--mark-muted);
+}
+
+.bar-value {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 96px;
+  text-align: right;
+}
+
+.bar-value .bar-value-sub {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* Inline meter used inside table cells. */
+.meter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.meter-track {
+  position: relative;
+  flex: 1;
+  min-width: 56px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--mark-track);
+  overflow: hidden;
+}
+
+.meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--mark-primary);
+  border-radius: 2px 3px 3px 2px;
+}
+
+.meter-value {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  min-width: 46px;
+  text-align: right;
+}
+
+.na {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.report-tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.report-tabs .tab {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+}
+
+.report-tabs .tab[aria-current='page'] {
+  background: transparent;
+  border-bottom-color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+.section {
+  margin-bottom: var(--space-6);
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.section-head .hint {
+  margin-left: auto;
+}
+
+/* ----------------------------------------------------------- History log */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  position: relative;
+}
+
+.timeline li:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 14px;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border-strong);
+}
+
+.timeline-dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--color-primary-dark);
+  border: 2px solid var(--color-bg);
+  box-shadow: 0 0 0 1px var(--color-border-strong);
+  z-index: 1;
+}
+
+.timeline-body {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.timeline-when {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------ Hours grid */
+
+.hours-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hours-day-block {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.hours-day-block.off {
+  opacity: 0.6;
+}
+
+.hours-day {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+}
+
+.hours-windows {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.hours-window {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hours-window input[type='time'] {
+  width: auto;
+  min-width: 120px;
+}
+
+.hours-dash {
+  color: var(--color-text-muted);
+}
+
+.hours-problem {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--color-danger);
+}
+
+.detail-list {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: var(--space-2) var(--space-4);
+  font-size: 14px;
+}
+
+.detail-list dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-top: 2px;
+}
+
+.detail-list dd {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    padding: var(--space-3) var(--space-4);
+    gap: var(--space-3);
+  }
+  .tabs {
+    margin-left: 0;
+    overflow-x: auto;
+  }
+  .cal-head {
+    position: static;
+  }
+  .page {
+    padding: var(--space-4) var(--space-3);
+  }
+  .hours-day-block {
+    grid-template-columns: 1fr;
+  }
+}

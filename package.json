@@ -1,0 +1,17 @@
+{
+  "name": "appointment-scheduling",
+  "private": true,
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "dev:api": "npm run dev -w @clinic/api",
+    "dev:web": "npm run dev -w @clinic/web",
+    "build": "npm run build -w @clinic/shared && npm run build -w @clinic/api && npm run build -w @clinic/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  },
+  "engines": { "node": ">=20" }
+}
