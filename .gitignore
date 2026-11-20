@@ -23,3 +23,8 @@ dist/
 # Env
 .env
 .env.local
+
+# Env (any workspace)
+.env.*
+!.env.example
+*.tsbuildinfo
