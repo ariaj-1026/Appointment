@@ -8,7 +8,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 ///   flutter run --dart-define=CLINIC_WEB_URL=https://clinic-web-xxxx.onrender.com
 const siteUrl = String.fromEnvironment(
   'CLINIC_WEB_URL',
-  defaultValue: 'https://clinic-web-REPLACE-ME.onrender.com',
+  defaultValue: 'https://clinic-web-o83z.onrender.com/login',
 );
 
 /// Staff/admin pages, plus Google sign-in (Google blocks it inside webviews).
