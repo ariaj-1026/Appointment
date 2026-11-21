@@ -6,7 +6,7 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: npm ci && npm run build -w @clinic/shared && npm run build -w @clinic/api
+    buildCommand: npm ci --include=dev &&npm run build -w @clinic/shared && npm run build -w @clinic/api
     # Migrations run before every start (single instance, so no race).
     startCommand: npm run db:migrate:prod -w @clinic/api && npm run start -w @clinic/api
     healthCheckPath: /api/health
