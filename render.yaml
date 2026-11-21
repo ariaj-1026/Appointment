@@ -6,7 +6,7 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: npm ci && npm run build -w @clinic/shared && npm run build -w @clinic/api
+    buildCommand: npm ci --include=dev &&npm run build -w @clinic/shared && npm run build -w @clinic/api
     # Migrations run before every start (single instance, so no race).
     startCommand: npm run db:migrate:prod -w @clinic/api && npm run start -w @clinic/api
     healthCheckPath: /api/health
@@ -38,6 +38,23 @@ services:
         value: Clinic Appointments
       - key: DEFAULT_CLINIC_TIMEZONE
         value: Asia/Manila
+
+  # Frontend (static site, free). /api/* is proxied to the API so cookies stay same-origin.
+  - type: web
+    name: clinic-web
+    runtime: static
+    buildCommand: npm ci --include=dev && npm run build -w @clinic/shared && npm run build -w @clinic/web
+    staticPublishPath: apps/web/dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://clinic-api-o83z.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_CLINIC_NAME
+        value: Clinic Appointments
 # Reminders: something must POST /api/cron/reminders every 15–30 min with
 # "authorization: Bearer $CRON_SECRET". Free option: .github/workflows/reminders.yml.
 # Paid option: uncomment this Render cron job.

@@ -3,7 +3,7 @@
   "buildCommand": "cd ../.. && npm run build -w @clinic/shared && npm run build -w @clinic/web",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://REPLACE-WITH-RENDER-SERVICE.onrender.com/api/:path*" },
+    { "source": "/api/:path*", "destination": "https://clinic-api-o83z.onrender.com/api/:path*" },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ]
 }
